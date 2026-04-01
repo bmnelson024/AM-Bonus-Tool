@@ -160,7 +160,10 @@
     <h1>AM Bonus Calculator</h1>
     <p>Incentive-Based Compensation Plan · Exhibit B · Oct 2025 – Mar 2026</p>
   </div>
-  <button class="btn-nav" onclick="switchTab('results')">View results →</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
+    <button class="btn-nav" onclick="switchTab('results')">View results →</button>
+  </div>
 </header>
 
 <!-- CF Import Modal -->
@@ -248,8 +251,8 @@
   <div id="tab-nonpgo">
     <div class="config-bar">
       <div class="config-field"><label>Maximum bonus pool</label><input type="text" id="pool-nonpgo-display" value="$60,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('nonpgo')" onblur="blurPool('nonpgo')"><input type="hidden" id="pool-nonpgo" value="60000"></div>
-      <div class="config-field"><label>Period start</label><input type="month" id="pstart-nonpgo" value="2025-10" oninput="renderTable('nonpgo')"></div>
-      <div class="config-field"><label>Period end</label><input type="month" id="pend-nonpgo" value="2026-03" oninput="renderTable('nonpgo')"></div>
+      <div class="config-field"><label>Period start</label><input type="month" id="pstart-nonpgo" value="2025-10" oninput="saveState();renderTable('nonpgo')"></div>
+      <div class="config-field"><label>Period end</label><input type="month" id="pend-nonpgo" value="2026-03" oninput="saveState();renderTable('nonpgo')"></div>
       <div class="period-hint">Income statements will be parsed for this exact date range.</div>
     </div>
     <div class="formula-bar" id="fbar-nonpgo"><strong>Formula:</strong> loading...</div>
@@ -319,8 +322,8 @@
   <div id="tab-pgo" style="display:none">
     <div class="config-bar">
       <div class="config-field"><label>Maximum bonus pool</label><input type="text" id="pool-pgo-display" value="$30,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('pgo')" onblur="blurPool('pgo')"><input type="hidden" id="pool-pgo" value="30000"></div>
-      <div class="config-field"><label>Period start</label><input type="month" id="pstart-pgo" value="2025-10" oninput="renderTable('pgo')"></div>
-      <div class="config-field"><label>Period end</label><input type="month" id="pend-pgo" value="2026-03" oninput="renderTable('pgo')"></div>
+      <div class="config-field"><label>Period start</label><input type="month" id="pstart-pgo" value="2025-10" oninput="saveState();renderTable('pgo')"></div>
+      <div class="config-field"><label>Period end</label><input type="month" id="pend-pgo" value="2026-03" oninput="saveState();renderTable('pgo')"></div>
       <div class="period-hint">Income statements will be parsed for this exact date range.</div>
     </div>
     <div class="formula-bar" id="fbar-pgo"><strong>Formula:</strong> loading...</div>
@@ -753,6 +756,7 @@ function applyCFImport(){
   const r=state[type].rows.find(r=>r.id===rid);
   if(r){if(noi!==null)r.currentNoi=noi;r.cf=rawCF;r.adjCf=adjCf;r.cfImported=true;}
   closeCFModal();
+  saveState();
   renderTable(type);
 }
 
@@ -902,6 +906,7 @@ function applyImport(){
     r.imported=true;
   }
   closeModal();
+  saveState();
   renderTable(type);
 }
 
@@ -913,14 +918,14 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false});renderTable(type);}
-function removeLastRow(type){if(state[type].rows.length===0)return;state[type].rows.pop();renderTable(type);}
-function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);renderTable(type);}
-function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;renderTable(type);}}
-function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});renderGroups(type);renderTable(type);}
-function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g)state[type].rows.forEach(r=>{if(r.group===g.name)r.group='';});state[type].groups=state[type].groups.filter(g=>g.id!==id);renderGroups(type);renderTable(type);}
-function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';state[type].rows.forEach(r=>{if(r.group===old)r.group=val;});if(g)g.name=val;renderGroups(type);renderTable(type);}
-function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;renderGroups(type);renderTable(type);}}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false});saveState();renderTable(type);}
+function removeLastRow(type){if(state[type].rows.length===0)return;state[type].rows.pop();saveState();renderTable(type);}
+function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
+function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
+function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
+function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g)state[type].rows.forEach(r=>{if(r.group===g.name)r.group='';});state[type].groups=state[type].groups.filter(g=>g.id!==id);saveState();renderGroups(type);renderTable(type);}
+function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';state[type].rows.forEach(r=>{if(r.group===old)r.group=val;});if(g)g.name=val;saveState();renderGroups(type);renderTable(type);}
+function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;saveState();renderGroups(type);renderTable(type);}}
 
 // ─── render table ─────────────────────────────────────────────────────────────
 function renderTable(type){
@@ -1106,10 +1111,95 @@ function blurPool(type){
   const raw=parseFloat(disp.value.replace(/[^0-9.]/g,''))||0;
   hidden.value=raw;
   disp.value='$'+raw.toLocaleString('en-US');
+  saveState();
   renderTable(type);
 }
 
-initFromSeed();
+// ─── localStorage persistence ─────────────────────────────────────────────────
+const STORAGE_KEY = 'am_bonus_calculator_v1';
+
+function saveState(){
+  try {
+    const payload = {
+      state,
+      rowId, groupId,
+      pools: {
+        nonpgo: document.getElementById('pool-nonpgo').value,
+        pgo:    document.getElementById('pool-pgo').value
+      },
+      periods: {
+        nonpgo: { start: document.getElementById('pstart-nonpgo').value, end: document.getElementById('pend-nonpgo').value },
+        pgo:    { start: document.getElementById('pstart-pgo').value,    end: document.getElementById('pend-pgo').value }
+      }
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch(e) { console.warn('Could not save state:', e); }
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (!payload.state || !payload.state.nonpgo || !payload.state.pgo) return false;
+
+    // Restore state
+    state.nonpgo = payload.state.nonpgo;
+    state.pgo    = payload.state.pgo;
+    rowId   = payload.rowId   || 0;
+    groupId = payload.groupId || 0;
+
+    // Restore pool values
+    if (payload.pools) {
+      ['nonpgo','pgo'].forEach(type => {
+        const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
+        document.getElementById('pool-'+type).value = v;
+        document.getElementById('pool-'+type+'-display').value = '$'+v.toLocaleString('en-US');
+      });
+    }
+
+    // Restore period values
+    if (payload.periods) {
+      ['nonpgo','pgo'].forEach(type => {
+        const p = payload.periods[type];
+        if (p) {
+          document.getElementById('pstart-'+type).value = p.start || '2025-10';
+          document.getElementById('pend-'+type).value   = p.end   || '2026-03';
+        }
+      });
+    }
+
+    return true;
+  } catch(e) {
+    console.warn('Could not load state:', e);
+    return false;
+  }
+}
+
+function resetToDefaults(){
+  if (!confirm('Reset all data to defaults? This will clear all entered values and cannot be undone.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  // Reset counters and state
+  state.nonpgo = {rows:[],groups:[]};
+  state.pgo    = {rows:[],groups:[]};
+  rowId = 0; groupId = 0;
+  // Reset pool displays
+  document.getElementById('pool-nonpgo').value = 60000;
+  document.getElementById('pool-nonpgo-display').value = '$60,000';
+  document.getElementById('pool-pgo').value = 30000;
+  document.getElementById('pool-pgo-display').value = '$30,000';
+  document.getElementById('pstart-nonpgo').value = '2025-10';
+  document.getElementById('pend-nonpgo').value   = '2026-03';
+  document.getElementById('pstart-pgo').value    = '2025-10';
+  document.getElementById('pend-pgo').value      = '2026-03';
+  initFromSeed();
+  renderTable('nonpgo'); renderTable('pgo');
+  renderGroups('nonpgo'); renderGroups('pgo');
+}
+
+// ─── boot ─────────────────────────────────────────────────────────────────────
+const restored = loadState();
+if (!restored) initFromSeed();
 renderTable('nonpgo');
 renderTable('pgo');
 renderGroups('nonpgo');
