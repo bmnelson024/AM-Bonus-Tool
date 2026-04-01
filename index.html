@@ -1,0 +1,1135 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="en"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1">&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1">&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</p>
+<p class="p1">&lt;title&gt;AM Bonus Calculator&lt;/title&gt;</p>
+<p class="p1">&lt;link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet"&gt;</p>
+<p class="p1">&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>:root {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--bg:#f5f4f0;--surface:#ffffff;--surface2:#f0efe9;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--border:#e2e0d8;--border2:#cccab8;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--text:#1a1916;--text2:#6b6960;--text3:#9b9a94;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--accent:#2d5a3d;--accent-light:#e8f0eb;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--amber:#92660a;--amber-light:#fdf3dc;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--blue:#1a3a5c;--blue-light:#e8eff7;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--red:#8b1a1a;--red-light:#fce8e8;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>--radius:8px;--radius-lg:12px;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>*{box-sizing:border-box;margin:0;padding:0;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>header{background:var(--accent);color:#fff;padding:20px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>header h1{font-size:18px;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>header p{font-size:12px;opacity:0.7;margin-top:2px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-nav{padding:8px 20px;border-radius:var(--radius);border:1px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-nav:hover{background:rgba(255,255,255,0.25);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.main{max-width:1400px;margin:0 auto;padding:24px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tab{padding:8px 20px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tab:hover{border-color:var(--border2);color:var(--text);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tab.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:12px;display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-field{display:flex;flex-direction:column;gap:4px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-field label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-field input{padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:14px;font-family:'DM Mono',monospace;width:200px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-field input[type=text]{font-family:'DM Sans',sans-serif;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.config-field input:focus{outline:none;border-color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.period-hint{font-size:11px;color:var(--text3);align-self:flex-end;padding-bottom:9px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.formula-bar{background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--amber);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.formula-bar strong{font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:16px;overflow:hidden;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.card-header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);gap:12px;flex-wrap:wrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.card-title{font-size:13px;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.card-meta{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-add{padding:5px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-add:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-remove{padding:5px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-remove:hover{background:var(--red-light);border-color:var(--red);color:var(--red);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-remove:disabled{opacity:0.4;cursor:not-allowed;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.loc-check{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);white-space:nowrap;cursor:pointer;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.loc-check input[type=checkbox]{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn-cf{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:5px;border:1px solid #b0c8e0;background:transparent;color:var(--blue);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn-cf:hover{background:var(--blue-light);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn-cf.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn-cf svg{width:11px;height:11px;flex-shrink:0;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.fmt-cell{padding:4px 7px;border-radius:5px;border:1px solid transparent;cursor:pointer;font-size:12.5px;font-family:'DM Mono',monospace;white-space:nowrap;min-height:26px;display:flex;align-items:center;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.fmt-cell:hover{border-color:var(--border);background:var(--bg);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.fmt-cell .fmt-placeholder{color:var(--text3);font-style:italic;font-family:'DM Sans',sans-serif;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.fmt-cell.negative{color:var(--red);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.noi-up{color:#15803d;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.noi-down{color:#b91c1c;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.cf-positive{color:#15803d;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.cf-negative{color:#b91c1c;font-weight:500;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tbl-wrap{overflow-x:auto;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>table{width:100%;border-collapse:collapse;font-size:12.5px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>th{padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>tr:last-child td{border-bottom:none;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>tr:hover td{background:#fafaf8;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>table input,table select{width:100%;padding:4px 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-size:12.5px;font-family:'DM Sans',sans-serif;transition:border-color 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>table input:hover,table select:hover{border-color:var(--border);background:var(--bg);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>table input:focus,table select:focus{outline:none;border-color:var(--accent);background:var(--bg);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;font-family:'DM Mono',monospace;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge-miss{background:#fce8e8;color:#8b1a1a;border:1px solid #f0b0b0;font-weight:600;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge-na{background:var(--surface2);color:var(--text3);border:1px solid var(--border);font-style:italic;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge-t1{background:#fef9c3;color:#854d0e;border:1px solid #fde047;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge-t2{background:#ffedd5;color:#9a3412;border:1px solid #fb923c;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.badge-t3{background:#dcfce7;color:#14532d;border:1px solid #4ade80;font-weight:600;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.bonus-val{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--accent);white-space:nowrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.zero-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--text3);white-space:nowrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.del-btn{width:22px;height:22px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.del-btn:hover{background:var(--red-light);color:var(--red);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.total-row-tbl td{font-weight:600;background:var(--accent-light)!important;border-top:1px solid var(--accent)!important;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.upload-btn svg{width:11px;height:11px;flex-shrink:0;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>/* Modal */</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal{background:var(--surface);border-radius:var(--radius-lg);padding:24px;width:460px;max-width:100%;border:1px solid var(--border);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal h3{font-size:15px;font-weight:500;margin-bottom:4px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-fields{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-field label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-val{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--accent);padding:8px 12px;background:var(--accent-light);border-radius:var(--radius);border:1px solid #b8d4bf;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-val.na{color:var(--text3);background:var(--surface2);border-color:var(--border);font-family:'DM Sans',sans-serif;font-weight:400;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-val.prop{color:var(--text2);background:var(--surface2);border-color:var(--border);font-family:'DM Sans',sans-serif;font-weight:400;font-size:13px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-val.period-info{color:var(--blue);background:var(--blue-light);border-color:#b0c8e0;font-family:'DM Sans',sans-serif;font-weight:400;font-size:12px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-warn{font-size:12px;color:var(--amber);padding:8px 12px;background:var(--amber-light);border-radius:var(--radius);border:1px solid #d4a01744;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.modal-actions{display:flex;gap:8px;justify-content:flex-end;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-cancel{padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-cancel:hover{background:var(--surface2);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-apply{padding:8px 20px;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-apply:hover{background:#234a30;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btn-apply:disabled{background:var(--text3);cursor:not-allowed;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>/* Groups */</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.group-row{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.group-head{padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.g-name-inp{padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font-size:13px;font-weight:500;font-family:'DM Sans',sans-serif;width:180px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.g-cap-inp{padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font-size:12px;font-family:'DM Mono',monospace;width:150px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.group-result{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.group-props{padding:8px 14px;font-size:12px;color:var(--text2);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.empty-state{padding:24px;text-align:center;color:var(--text3);font-size:13px;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-ref{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-ref h3{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-block h4{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-row-ref{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--border);color:var(--text2);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-row-ref:last-child{border-bottom:none;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-row-ref span:first-child{flex:1;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-row-ref .tr{font-family:'DM Mono',monospace;color:var(--text);font-size:11px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.tier-row-ref .badge{flex-shrink:0;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>/* Results */</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric-value{font-size:22px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric-sub{font-size:11px;color:var(--text3);margin-top:4px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric.accent{border-color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.metric.accent .metric-value{color:var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.pct-bar-wrap{height:4px;background:var(--border);border-radius:2px;margin-top:6px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.pct-bar{height:4px;background:var(--accent);border-radius:2px;max-width:100%;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.pct-bar.warn{background:var(--amber);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.section-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:14px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.section-result h3{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--text2);border-bottom:1px solid var(--border);padding-bottom:10px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.smgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.sm{background:var(--bg);border-radius:var(--radius);padding:10px 12px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.sm-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.sm-value{font-size:16px;font-weight:500;font-family:'DM Mono',monospace;margin-top:4px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.sm-sub{font-size:10px;color:var(--text3);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btbl th{padding:7px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;text-align:center;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btbl td{padding:7px 10px;border:1px solid var(--border);text-align:center;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btbl td:first-child{text-align:left;font-weight:500;color:var(--text2);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.btbl .tot td{background:var(--accent-light);font-weight:600;border-top:2px solid var(--accent);}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.num{font-family:'DM Mono',monospace;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.cap-warn{color:var(--amber);font-size:11px;}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>@media(max-width:700px){.main{padding:12px;}header{padding:14px 16px;}.tier-grid{grid-template-columns:1fr;}}</p>
+<p class="p1">&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;header&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h1&gt;AM Bonus Calculator&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;p&gt;Incentive-Based Compensation Plan · Exhibit B · Oct 2025 – Mar 2026&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;button class="btn-nav" onclick="switchTab('results')"&gt;View results →&lt;/button&gt;</p>
+<p class="p1">&lt;/header&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;!-- CF Import Modal --&gt;</p>
+<p class="p1">&lt;div class="modal-overlay" id="cf-import-modal" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="modal"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h3&gt;Import cash flow statement&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-sub" id="cf-modal-platform"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-fields"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Property detected&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val prop" id="cf-modal-prop"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Period used&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val period-info" id="cf-modal-period"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;NOI — Net Operating Income&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val" id="cf-modal-noi"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Raw cash flow&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val" id="cf-modal-raw"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Adjustments applied&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div id="cf-modal-adjustments" style="font-size:12px;font-family:'DM Mono',monospace;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;line-height:1.8;"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Adjusted cash flow&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val" id="cf-modal-adj"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="cf-modal-warn-wrap" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-warn" id="cf-modal-warn"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-actions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="btn-cancel" onclick="closeCFModal()"&gt;Cancel&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="btn-apply" id="cf-modal-apply-btn" onclick="applyCFImport()"&gt;Apply to property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;!-- Modal --&gt;</p>
+<p class="p1">&lt;div class="modal-overlay" id="import-modal" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="modal"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h3&gt;Import income statement&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-sub" id="modal-platform"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-fields"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Property detected&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val prop" id="modal-prop"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Period used for calculation&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val period-info" id="modal-period-info"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;NOI — Net Operating Income&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val" id="modal-noi"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="modal-field"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Cash flow — Net Income (raw)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-val" id="modal-cf"&gt;—&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="modal-warn-wrap" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="modal-warn" id="modal-warn"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="modal-actions"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="btn-cancel" onclick="closeModal()"&gt;Cancel&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="btn-apply" id="modal-apply-btn" onclick="applyImport()"&gt;Apply to property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div class="main"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="tabs"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="tab active" onclick="switchTab('nonpgo')"&gt;Non-PGO properties&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="tab" onclick="switchTab('pgo')"&gt;PGO properties&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;button class="tab" onclick="switchTab('results')"&gt;Results summary&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- NON-PGO --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="tab-nonpgo"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="config-bar"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Maximum bonus pool&lt;/label&gt;&lt;input type="text" id="pool-nonpgo-display" value="$60,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('nonpgo')" onblur="blurPool('nonpgo')"&gt;&lt;input type="hidden" id="pool-nonpgo" value="60000"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Period start&lt;/label&gt;&lt;input type="month" id="pstart-nonpgo" value="2025-10" oninput="renderTable('nonpgo')"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Period end&lt;/label&gt;&lt;input type="month" id="pend-nonpgo" value="2026-03" oninput="renderTable('nonpgo')"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="period-hint"&gt;Income statements will be parsed for this exact date range.&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="formula-bar" id="fbar-nonpgo"&gt;&lt;strong&gt;Formula:&lt;/strong&gt; loading...&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="tier-ref"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;h3&gt;Tier reference&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="tier-grid"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;Economic Occupancy&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;89% – 90.9%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 5%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;91% – 93.9%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 15%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;94%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 25%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;NOI Increase (vs Apr–Sep 25)&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;2% – 5.9%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 5%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;6% – 9.9%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 15%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;10%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 25%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;Cash Flow (annualized / unreturned capital)&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;3% – 5.99%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 20%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;6% – 8.99%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 35%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;9%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 50%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="card"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="card-header"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-title"&gt;Properties&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-meta" id="count-nonpgo"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style="display:flex;gap:6px"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="btn-add" onclick="addRow('nonpgo')"&gt;+ Add property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="btn-remove" id="btn-remove-nonpgo" onclick="removeLastRow('nonpgo')" disabled&gt;− Remove property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="tbl-wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;table&gt;&lt;thead&gt;&lt;tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:155px"&gt;Property name&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:48px"&gt;Units&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:105px"&gt;Ec occ (decimal)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;Occ tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Prior NOI Apr–Sep 25 ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Current NOI ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;NOI tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Cash flow ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Adj cash flow ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;CF tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:130px"&gt;Syndication group&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:130px"&gt;Unreturned capital ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:75px"&gt;Line of credit&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:90px"&gt;Platform&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:110px"&gt;Import income stmt&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:110px"&gt;Import cash flow&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:85px"&gt;Bonus&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th&gt;&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/tr&gt;&lt;/thead&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tbody id="body-nonpgo"&gt;&lt;/tbody&gt;&lt;/table&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="card"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="card-header"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-title"&gt;Syndication groups (pooled cash flow)&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="btn-add" onclick="addGroup('nonpgo')"&gt;+ Add group&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="groups-nonpgo" style="padding:12px"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- PGO --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="tab-pgo" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="config-bar"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Maximum bonus pool&lt;/label&gt;&lt;input type="text" id="pool-pgo-display" value="$30,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('pgo')" onblur="blurPool('pgo')"&gt;&lt;input type="hidden" id="pool-pgo" value="30000"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Period start&lt;/label&gt;&lt;input type="month" id="pstart-pgo" value="2025-10" oninput="renderTable('pgo')"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="config-field"&gt;&lt;label&gt;Period end&lt;/label&gt;&lt;input type="month" id="pend-pgo" value="2026-03" oninput="renderTable('pgo')"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="period-hint"&gt;Income statements will be parsed for this exact date range.&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="formula-bar" id="fbar-pgo"&gt;&lt;strong&gt;Formula:&lt;/strong&gt; loading...&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="tier-ref"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;h3&gt;Tier reference&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="tier-grid"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;Economic Occupancy&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;89% – 90.9%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 5%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;91% – 93.9%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 15%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;94%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 25%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;NOI Increase (vs Apr–Sep 25)&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;2% – 5.9%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 5%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;6% – 9.9%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 15%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;10%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 25%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="tier-block"&gt;&lt;h4&gt;Cash Flow (annualized / unreturned capital)&lt;/h4&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;3% – 5.99%&lt;/span&gt;&lt;span class="badge badge-t1"&gt;Tier 1 · 20%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;6% – 8.99%&lt;/span&gt;&lt;span class="badge badge-t2"&gt;Tier 2 · 35%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="tier-row-ref"&gt;&lt;span&gt;9%+&lt;/span&gt;&lt;span class="badge badge-t3"&gt;Tier 3 · 50%&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="card"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="card-header"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-title"&gt;Properties&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-meta" id="count-pgo"&gt;&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div style="display:flex;gap:6px"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="btn-add" onclick="addRow('pgo')"&gt;+ Add property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;button class="btn-remove" id="btn-remove-pgo" onclick="removeLastRow('pgo')" disabled&gt;− Remove property&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="tbl-wrap"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;table&gt;&lt;thead&gt;&lt;tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:155px"&gt;Property name&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:48px"&gt;Units&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:105px"&gt;Ec occ (decimal)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;Occ tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Prior NOI Apr–Sep 25 ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Current NOI ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;NOI tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Cash flow ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:115px"&gt;Adj cash flow ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:68px"&gt;CF tier&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:130px"&gt;Syndication group&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:130px"&gt;Unreturned capital ($)&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:75px"&gt;Line of credit&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:90px"&gt;Platform&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:110px"&gt;Import income stmt&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:110px"&gt;Import cash flow&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th style="min-width:85px"&gt;Bonus&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;th&gt;&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/tr&gt;&lt;/thead&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tbody id="body-pgo"&gt;&lt;/tbody&gt;&lt;/table&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="card"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="card-header"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;span class="card-title"&gt;Syndication groups (pooled cash flow)&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="btn-add" onclick="addGroup('pgo')"&gt;+ Add group&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="groups-pgo" style="padding:12px"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;!-- RESULTS --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div id="tab-results" style="display:none"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metrics-grid" id="grand-metrics"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="results-sections"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script&gt;</p>
+<p class="p1">// ─── seed data ────────────────────────────────────────────────────────────────</p>
+<p class="p1">const SEED = {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>nonpgo: {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>groups: [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'MWP 1',capital:4666000},{name:'MWP 2',capital:1180000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'MWP 3',capital:1825000},{name:'MWP 4',capital:2660000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'MWP 5',capital:7610000},{name:'MWP 7',capital:5875000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Boulder Bancroft',capital:10218000},{name:'BG Champion',capital:9950000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Eagle Annex',capital:1400000},{name:'Lionsgate',capital:1118000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Maple Partners',capital:1116000},{name:'Preserve Partners',capital:1700000},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>],</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rows: [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Capitol City Villas', <span class="Apple-converted-space">  </span>units:67,<span class="Apple-converted-space">  </span>priorNoi:130998.39, group:'MWP 5',<span class="Apple-converted-space">            </span>capital:'', loc:true,<span class="Apple-converted-space">  </span>platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Indigo',<span class="Apple-converted-space">                </span>units:12,<span class="Apple-converted-space">  </span>priorNoi:22707.02,<span class="Apple-converted-space">  </span>group:'MWP 2',<span class="Apple-converted-space">            </span>capital:'', platform:'indigo'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Dakota Bend', <span class="Apple-converted-space">          </span>units:56,<span class="Apple-converted-space">  </span>priorNoi:124935.93, group:'MWP 3',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Grandview', <span class="Apple-converted-space">            </span>units:15,<span class="Apple-converted-space">  </span>priorNoi:26683.03,<span class="Apple-converted-space">  </span>group:'MWP 4',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Whitney', <span class="Apple-converted-space">          </span>units:28,<span class="Apple-converted-space">  </span>priorNoi:46091.08,<span class="Apple-converted-space">  </span>group:'MWP 2',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Uptown Flats',<span class="Apple-converted-space">          </span>units:19,<span class="Apple-converted-space">  </span>priorNoi:24518.57,<span class="Apple-converted-space">  </span>group:'MWP 2',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Boulder Ridge', <span class="Apple-converted-space">        </span>units:46,<span class="Apple-converted-space">  </span>priorNoi:224717.18, group:'MWP 1',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Lionsgate', <span class="Apple-converted-space">            </span>units:38,<span class="Apple-converted-space">  </span>priorNoi:152042.86, group:'Lionsgate',<span class="Apple-converted-space">        </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Altoona Terrace', <span class="Apple-converted-space">      </span>units:83,<span class="Apple-converted-space">  </span>priorNoi:189214.49, group:'MWP 7',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio', loc:true},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Adventureland', <span class="Apple-converted-space">        </span>units:72,<span class="Apple-converted-space">  </span>priorNoi:192784.80, group:'MWP 7',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio', loc:true},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Franklin Court',<span class="Apple-converted-space">        </span>units:172, priorNoi:444611.96, group:'MWP 7',<span class="Apple-converted-space">            </span>capital:'', platform:'appfolio', loc:true},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'BG Flats',<span class="Apple-converted-space">              </span>units:42,<span class="Apple-converted-space">  </span>priorNoi:168736.92, group:'BG Champion',<span class="Apple-converted-space">      </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Champion Villas', <span class="Apple-converted-space">      </span>units:81,<span class="Apple-converted-space">  </span>priorNoi:382704.67, group:'BG Champion',<span class="Apple-converted-space">      </span>capital:'', platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'15th Street 9 Plex',<span class="Apple-converted-space">    </span>units:9, <span class="Apple-converted-space">  </span>priorNoi:9573.98, <span class="Apple-converted-space">  </span>group:'', <span class="Apple-converted-space">                </span>capital:87500, platform:'appfolio'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Landmark on Dakota', units:22, priorNoi:55570.54, group:'MWP 2', capital:'', platform:'buildium', loc:true},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Bancroft Place',<span class="Apple-converted-space">        </span>units:52,<span class="Apple-converted-space">  </span>priorNoi:180998.13, group:'Boulder Bancroft', capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Boulder Pointe',<span class="Apple-converted-space">        </span>units:52,<span class="Apple-converted-space">  </span>priorNoi:251950.38, group:'Boulder Bancroft', capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Eagle Creek', <span class="Apple-converted-space">          </span>units:65,<span class="Apple-converted-space">  </span>priorNoi:244068.45, group:'Eagle Annex',<span class="Apple-converted-space">      </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Judee', <span class="Apple-converted-space">                </span>units:56,<span class="Apple-converted-space">  </span>priorNoi:281934.37, group:'MWP 5',<span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Maple Park',<span class="Apple-converted-space">            </span>units:77,<span class="Apple-converted-space">  </span>priorNoi:240474.53, group:'Maple Partners', <span class="Apple-converted-space">  </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Preserve',<span class="Apple-converted-space">          </span>units:72,<span class="Apple-converted-space">  </span>priorNoi:223411.01, group:'Preserve Partners',capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>]</p>
+<p class="p1"><span class="Apple-converted-space">  </span>},</p>
+<p class="p1"><span class="Apple-converted-space">  </span>pgo: {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>groups: [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'MWP 1',capital:4666000},{name:'MWP 4',capital:2660000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'MWP 5',capital:7610000},{name:'Eagle Annex / Langston Loge',capital:1400000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Partners of Estrella',capital:10304000},{name:'Heston Pointe',capital:1242000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Partners of Park Place',capital:3326000},{name:"Patrick's Place Partners",capital:764000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Sarpy Douglas',capital:787500},{name:'Sierra Gardens',capital:7647000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Tall Oaks Partners',capital:1064000},{name:'Colonial SOMA',capital:315000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Cordes Partners LLC',capital:425000},{name:'Red Park 2 LLC',capital:375000},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Copperleaf Investments LLC',capital:1031250},{name:'Fast Ave Properties LLC',capital:87500},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>],</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rows: [</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'1003-1005 Ave K (Carter Place)',units:20,<span class="Apple-converted-space">  </span>priorNoi:61820.68,<span class="Apple-converted-space">  </span>group:'MWP 4', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'321 Townhomes', <span class="Apple-converted-space">              </span>units:20,<span class="Apple-converted-space">  </span>priorNoi:51025.86,<span class="Apple-converted-space">  </span>group:'MWP 1', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'9447 J Street', <span class="Apple-converted-space">              </span>units:2, <span class="Apple-converted-space">  </span>priorNoi:91092.20,<span class="Apple-converted-space">  </span>group:'MWP 4', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'College Heights', <span class="Apple-converted-space">            </span>units:23,<span class="Apple-converted-space">  </span>priorNoi:36584.72,<span class="Apple-converted-space">  </span>group:'MWP 5', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Estrella',<span class="Apple-converted-space">                    </span>units:232, priorNoi:674277.35, group:'Partners of Estrella', <span class="Apple-converted-space">      </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Heston Pointe', <span class="Apple-converted-space">              </span>units:64,<span class="Apple-converted-space">  </span>priorNoi:22766.85,<span class="Apple-converted-space">  </span>group:'Heston Pointe', <span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Langston Loge', <span class="Apple-converted-space">              </span>units:81,<span class="Apple-converted-space">  </span>priorNoi:165392.85, group:'Eagle Annex / Langston Loge',capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Park Place',<span class="Apple-converted-space">                  </span>units:262, priorNoi:623592.11, group:'Partners of Park Place', <span class="Apple-converted-space">    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:"Patrick's Place", <span class="Apple-converted-space">            </span>units:48,<span class="Apple-converted-space">  </span>priorNoi:221002.47, group:"Patrick's Place Partners", <span class="Apple-converted-space">  </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Sandra Ann',<span class="Apple-converted-space">                  </span>units:26,<span class="Apple-converted-space">  </span>priorNoi:71520.23,<span class="Apple-converted-space">  </span>group:'Sarpy Douglas', <span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Sierra Gardens',<span class="Apple-converted-space">              </span>units:235, priorNoi:623068.72, group:'Sierra Gardens',<span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Tall Oaks', <span class="Apple-converted-space">                  </span>units:79,<span class="Apple-converted-space">  </span>priorNoi:204803.42, group:'Tall Oaks Partners',<span class="Apple-converted-space">        </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Beverly', <span class="Apple-converted-space">                </span>units:178, priorNoi:124900.05, group:'MWP 1', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Todd',<span class="Apple-converted-space">                    </span>units:22,<span class="Apple-converted-space">  </span>priorNoi:59117.97,<span class="Apple-converted-space">  </span>group:'MWP 4', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'The Vincent', <span class="Apple-converted-space">                </span>units:48,<span class="Apple-converted-space">  </span>priorNoi:125138.91, group:'Sarpy Douglas', <span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Venice (4916 California)',<span class="Apple-converted-space">    </span>units:11,<span class="Apple-converted-space">  </span>priorNoi:12599.88,<span class="Apple-converted-space">  </span>group:'MWP 4', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Villa Blanca',<span class="Apple-converted-space">                </span>units:25,<span class="Apple-converted-space">  </span>priorNoi:55385.40,<span class="Apple-converted-space">  </span>group:'MWP 4', <span class="Apple-converted-space">                    </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'102 N 38th Ave',<span class="Apple-converted-space">              </span>units:5, <span class="Apple-converted-space">  </span>priorNoi:5190.16, <span class="Apple-converted-space">  </span>group:'Fast Ave Properties LLC', <span class="Apple-converted-space">  </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'2206 K Street', <span class="Apple-converted-space">              </span>units:23,<span class="Apple-converted-space">  </span>priorNoi:'',<span class="Apple-converted-space">        </span>group:'Colonial SOMA', <span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'504-604 Cordes Dr', <span class="Apple-converted-space">          </span>units:24,<span class="Apple-converted-space">  </span>priorNoi:101039.47, group:'Cordes Partners LLC', <span class="Apple-converted-space">      </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'60th Street Duplexes',<span class="Apple-converted-space">        </span>units:10,<span class="Apple-converted-space">  </span>priorNoi:38064.23,<span class="Apple-converted-space">  </span>group:'Red Park 2 LLC',<span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Aksarben LIV',<span class="Apple-converted-space">                </span>units:24,<span class="Apple-converted-space">  </span>priorNoi:76639.18,<span class="Apple-converted-space">  </span>group:'Red Park 2 LLC',<span class="Apple-converted-space">            </span>capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">      </span>{name:'Copperleaf',<span class="Apple-converted-space">                  </span>units:88,<span class="Apple-converted-space">  </span>priorNoi:177130.01, group:'Copperleaf Investments LLC',capital:'', platform:'buildium'},</p>
+<p class="p1"><span class="Apple-converted-space">    </span>]</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1">};</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── state ────────────────────────────────────────────────────────────────────</p>
+<p class="p1">const state = {nonpgo:{rows:[],groups:[]},pgo:{rows:[],groups:[]}};</p>
+<p class="p1">let rowId=0, groupId=0, pendingImport=null;</p>
+<p class="p2"><br></p>
+<p class="p1">function initFromSeed(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>['nonpgo','pgo'].forEach(type=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>SEED[type].groups.forEach(g=&gt;state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>SEED[type].rows.forEach(r=&gt;state[type].rows.push({id:++rowId,...r,occ:'',currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',cfImported:false,imported:false}));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── tier logic ───────────────────────────────────────────────────────────────</p>
+<p class="p1">function occTier(v){if(v===''||v==null)return'miss';const p=parseFloat(v);if(isNaN(p))return'miss';return p&gt;=94?'3':p&gt;=91?'2':p&gt;=89?'1':'miss';}</p>
+<p class="p1">function noiTier(prior,current){if(prior===''||prior==null)return'na';const p=parseFloat(prior),c=parseFloat(current);if(isNaN(p)||isNaN(c))return'na';if(p===0)return'miss';const pct=(c-p)/Math.abs(p)*100;return pct&gt;=10?'3':pct&gt;=6?'2':pct&gt;=2?'1':'miss';}</p>
+<p class="p1">function cfTierFromPct(pct){if(pct===null||isNaN(pct))return'miss';return pct&gt;=9?'3':pct&gt;=6?'2':pct&gt;=3?'1':'miss';}</p>
+<p class="p1">function annPct(cf,cap){const c=parseFloat(cf),k=parseFloat(cap);if(isNaN(c)||isNaN(k)||k===0)return null;return(c*2/k)*100;}</p>
+<p class="p1">function wOcc(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}</p>
+<p class="p1">function wNOI(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}</p>
+<p class="p1">function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}</p>
+<p class="p1">function buildCFMap(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const map={};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>state[type].groups.forEach(g=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const k=parseFloat(g.capital);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if(!isNaN(k)&amp;&amp;k!==0){const total=state[type].rows.filter(r=&gt;r.group===g.name).reduce((s,r)=&gt;s+(parseFloat(r.adjCf!==''&amp;&amp;r.adjCf!==undefined?r.adjCf:r.cf)||0),0);map[g.name]=cfTierFromPct((total*2/k)*100);}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>else map[g.name]='miss';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return map;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── helpers ──────────────────────────────────────────────────────────────────</p>
+<p class="p1">function badge(t){if(t==='na')return'&lt;span class="badge badge-na"&gt;N/A&lt;/span&gt;';if(t==='miss')return'&lt;span class="badge badge-miss"&gt;Miss&lt;/span&gt;';return`&lt;span class="badge badge-t${t}"&gt;Tier ${t}&lt;/span&gt;`;}</p>
+<p class="p1">const fmt<span class="Apple-converted-space">  </span>= n=&gt;'$'+Math.round(n).toLocaleString('en-US');</p>
+<p class="p1">const fmtD = (n,d)=&gt;'$'+n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});</p>
+<p class="p1">const fmtP = n=&gt;n.toFixed(1)+'%';</p>
+<p class="p2"><br></p>
+<p class="p1">function fmtAcct(v){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(v===''||v===null||v===undefined)return'';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const n=parseFloat(v); if(isNaN(n))return'';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const abs=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return n&lt;0?`($${abs})`:`$${abs}`;</p>
+<p class="p1">}</p>
+<p class="p1">function fmtOcc(v){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(v===''||v===null||v===undefined)return'';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const n=parseFloat(v); if(isNaN(n))return'';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return n.toFixed(2)+'%';</p>
+<p class="p1">}</p>
+<p class="p1">function editCell(displayHtml, rawVal, type, id, field, placeholder){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const esc = String(rawVal).replace(/"/g,'&amp;quot;');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const inner = displayHtml || '&lt;span class="fmt-placeholder"&gt;'+placeholder+'&lt;/span&gt;';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return '&lt;div class="fmt-cell" onclick="activateEdit(this,\''+type+'\','+id+',\''+field+'\',\''+placeholder+'\''+')" data-raw="'+esc+'" title="Click to edit"&gt;'+inner+'&lt;/div&gt;';</p>
+<p class="p1">}</p>
+<p class="p1">function activateEdit(el,type,id,field,placeholder){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const raw=el.getAttribute('data-raw');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const inp=document.createElement('input');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.type='number';inp.step='any';inp.value=raw;inp.placeholder=placeholder;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.style.cssText='width:100%;padding:4px 7px;border:1px solid var(--accent);border-radius:5px;background:var(--bg);color:var(--text);font-size:12.5px;font-family:\'DM Sans\',sans-serif;';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.oninput=()=&gt;{ const r=state[type].rows.find(r=&gt;r.id===id); if(r)r[field]=inp.value; };</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.onblur=()=&gt;renderTable(type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.onkeydown=e=&gt;{if(e.key==='Enter'||e.key==='Tab')inp.blur();};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>el.replaceWith(inp); inp.focus(); inp.select();</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function getPeriodMonths(type) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Returns array of strings like ["10-2025","11-2025",...,"03-2026"] (Buildium format)</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// and ["Oct 2025","Nov 2025",...,"Mar 2026"] (Appfolio format)</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ps = document.getElementById('pstart-'+type).value; // "2025-10"</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const pe = document.getElementById('pend-'+type).value; <span class="Apple-converted-space">  </span>// "2026-03"</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(!ps||!pe) return null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [sy,sm]=ps.split('-').map(Number);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const [ey,em]=pe.split('-').map(Number);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const months=[];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let y=sy,m=sm;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>while(y&lt;ey||(y===ey&amp;&amp;m&lt;=em)){</p>
+<p class="p1"><span class="Apple-converted-space">    </span>months.push({year:y,month:m});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>m++; if(m&gt;12){m=1;y++;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return months;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];</p>
+<p class="p2"><br></p>
+<p class="p1">function monthMatchesHeader(header, year, month) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const h = String(header).trim();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Buildium: "10-2025", "03-2026"</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const bld = `${String(month).padStart(2,'0')}-${year}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(h === bld) return true;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Appfolio: "Oct 2025", "Mar 2026"</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const app = `${MONTH_NAMES[month-1]} ${year}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(h === app) return true;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return false;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── Excel parser ─────────────────────────────────────────────────────────────</p>
+<p class="p1">// ─── Cash Flow Statement parser ───────────────────────────────────────────────</p>
+<p class="p1">let pendingCFImport = null;</p>
+<p class="p2"><br></p>
+<p class="p1">function triggerCFUpload(type, rid){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const inp=document.createElement('input');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.type='file'; inp.accept='.xlsx,.xls';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.onchange=e=&gt;{parseCFStatement(e.target.files[0],type,rid);document.body.removeChild(inp);};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.body.appendChild(inp);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.click();</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function parseCFStatement(file, type, rid){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const reader=new FileReader();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>reader.onload=e=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const wb=XLSX.read(e.target.result,{type:'array'});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const ws=wb.Sheets[wb.SheetNames[0]];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const periodMonths=getPeriodMonths(type);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>let platform='', propName='', headerRow=null, headerRowIdx=-1;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>for(let i=0;i&lt;Math.min(data.length,15);i++){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const row=data[i];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const r0=String(row[0]||'').trim();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const r1=String(row[1]||'').trim();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(r0.startsWith('Properties:')||r1.startsWith('Properties:')){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>platform='Appfolio';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const raw=(r0.startsWith('Properties:')?r0:r1).replace('Properties:','').trim();</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const parts=raw.split(' - ');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>propName=parts.length&gt;=2?parts[1].trim():raw;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(i===2&amp;&amp;!platform&amp;&amp;r0&amp;&amp;!r0.includes('Cash Flow')&amp;&amp;!r0.includes('Prepared')){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>platform='Buildium';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>propName=r0.split(' - ')[0].trim();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(!headerRow&amp;&amp;row.some(c=&gt;String(c).match(/^\d{2}-\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/))){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>headerRow=row; headerRowIdx=i;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>let targetCols=[];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(headerRow&amp;&amp;periodMonths){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>headerRow.forEach((h,ci)=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(periodMonths.some(pm=&gt;monthMatchesHeader(h,pm.year,pm.month))) targetCols.push(ci);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const periodLabel=periodMonths</p>
+<p class="p1"><span class="Apple-converted-space">        </span>?`${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`</p>
+<p class="p1"><span class="Apple-converted-space">        </span>:'Full period';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Line items we care about</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const items={noi:null,cashFlow:null,secDeposit:null,secDepositsHeld:null,mgmtSecDeposit:null,trustAccount:null,clearingAccount:null,accountsPayable:null,prepaidRent:null,prepaidCharges:null,prepayments:null,prepaidExpenses:null,lastMonthsRent:null,accruals:null,realEstateTaxPayable:null,propertyTaxEscrow:null,propertyTaxInsEscrow:null,accruedPropertyTaxes:null,taxInsPayable:null,escrowHeldAtBank:null,ownerContribution:null,ownerDistributions:null,priorYrDist:null,lineOfCredit:null,capEx:null};</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const LABELS={</p>
+<p class="p1"><span class="Apple-converted-space">        </span>noi:<span class="Apple-converted-space">                  </span>['noi - net operating income','net operating income'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>cashFlow: <span class="Apple-converted-space">            </span>['cash flow'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>secDeposit: <span class="Apple-converted-space">          </span>['security deposit liability','security deposit account','security deposits','security deposit'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>secDepositsHeld:<span class="Apple-converted-space">      </span>['security deposits held'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>mgmtSecDeposit: <span class="Apple-converted-space">      </span>['mgmt held security deposits','management held security deposits'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>trustAccount: <span class="Apple-converted-space">        </span>['trust account'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>clearingAccount:<span class="Apple-converted-space">      </span>['clearing account','refund - clearing account'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>accountsPayable:<span class="Apple-converted-space">      </span>['accounts payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>prepaidRent:<span class="Apple-converted-space">          </span>['prepaid rent'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>prepaidCharges: <span class="Apple-converted-space">      </span>['prepaid charges'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>prepayments:<span class="Apple-converted-space">          </span>['prepayments'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>prepaidExpenses:<span class="Apple-converted-space">      </span>['prepaid expenses'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>lastMonthsRent: <span class="Apple-converted-space">      </span>["last month's rent",'last months rent'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>accruals: <span class="Apple-converted-space">            </span>['accruals','accrued expenses'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>realEstateTaxPayable: ['real estate tax payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>propertyTaxEscrow:<span class="Apple-converted-space">    </span>['property tax escrow'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>propertyTaxInsEscrow: ['property tax &amp; insurance escrow','tax &amp; insurance escrow'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>accruedPropertyTaxes: ['accrued property taxes'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>taxInsPayable:<span class="Apple-converted-space">        </span>['tax &amp; insurance payable','taxes &amp; insurance payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>escrowHeldAtBank: <span class="Apple-converted-space">    </span>['escrow held at bank'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>ownerContribution:<span class="Apple-converted-space">    </span>['owner contribution','owner contributions'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>ownerDistributions: <span class="Apple-converted-space">  </span>['owner distributions','owner distribution'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>priorYrDist:<span class="Apple-converted-space">          </span>['prior year owner distribution','prior yr owner distribution'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>lineOfCredit: <span class="Apple-converted-space">        </span>['line of credit'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>capEx:<span class="Apple-converted-space">                </span>['capital expenditures','capital improvements','total capital expenses','total capital expenditures','building improvements','hvac unit']</p>
+<p class="p1"><span class="Apple-converted-space">      </span>};</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>function sumCols(row){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(targetCols.length&gt;0) return targetCols.reduce((s,ci)=&gt;{const v=parseFloat(String(row[ci]).replace(/,/g,''));return s+(isNaN(v)?0:v);},0);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for(let c=row.length-1;c&gt;=0;c--){const v=parseFloat(String(row[c]).replace(/,/g,''));if(!isNaN(v))return v;}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return null;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>for(let i=headerRowIdx+1;i&lt;data.length;i++){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const row=data[i];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const label=String(row[0]||'').trim().toLowerCase();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>for(const[key,patterns] of Object.entries(LABELS)){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(items[key]===null &amp;&amp; patterns.some(p=&gt;label===p||label===p.trim()||label.includes(p))){</p>
+<p class="p1"><span class="Apple-converted-space">            </span>items[key]=sumCols(row);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Get the LOC flag for this row</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const r=state[type].rows.find(r=&gt;r.id===rid);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const hasLOC=r?r.loc:false;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Calculate adjusted cash flow</p>
+<p class="p1"><span class="Apple-converted-space">      </span>let adj=items.cashFlow||0;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const adjLines=[];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(items.cashFlow!==null) adjLines.push({label:'Cash Flow',val:items.cashFlow,sign:''});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Always subtract each item (negative values naturally add back)</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Trust account, clearing account, and secDepositsHeld are recognized but intentionally NOT subtracted</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// They are wash items that offset other lines already being subtracted</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// capEx handled separately below based on LOC flag</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const alwaysSubtract = [</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['secDeposit', <span class="Apple-converted-space">          </span>'− Security Deposit'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['mgmtSecDeposit', <span class="Apple-converted-space">      </span>'− Mgmt Held Security Deposits'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['accountsPayable',<span class="Apple-converted-space">      </span>'− Accounts Payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['prepaidRent',<span class="Apple-converted-space">          </span>'− Prepaid Rent'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['prepaidCharges', <span class="Apple-converted-space">      </span>'− Prepaid Charges'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['prepayments',<span class="Apple-converted-space">          </span>'− Prepayments'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['prepaidExpenses',<span class="Apple-converted-space">      </span>'− Prepaid Expenses'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['lastMonthsRent', <span class="Apple-converted-space">      </span>"− Last Month's Rent"],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['accruals', <span class="Apple-converted-space">            </span>'− Accruals'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['realEstateTaxPayable', '− Real Estate Tax Payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['propertyTaxEscrow',<span class="Apple-converted-space">    </span>'− Property Tax Escrow'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['propertyTaxInsEscrow', '− Property Tax &amp; Insurance Escrow'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['accruedPropertyTaxes', '− Accrued Property Taxes'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['taxInsPayable',<span class="Apple-converted-space">        </span>'− Tax &amp; Insurance Payable'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['escrowHeldAtBank', <span class="Apple-converted-space">    </span>'− Escrow Held at Bank'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['ownerContribution',<span class="Apple-converted-space">    </span>'− Owner Contribution'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['ownerDistributions', <span class="Apple-converted-space">  </span>'− Owner Distributions'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['priorYrDist',<span class="Apple-converted-space">          </span>'− Prior Year Owner Distribution'],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>['lineOfCredit', <span class="Apple-converted-space">        </span>'− Line of Credit'],</p>
+<p class="p1"><span class="Apple-converted-space">      </span>];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>for(const [key,label] of alwaysSubtract){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(items[key]!==null&amp;&amp;items[key]!==0){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>adj-=items[key];</p>
+<p class="p1"><span class="Apple-converted-space">          </span>adjLines.push({label,val:items[key]});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// CapEx: add back absolute value only for LOC properties</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(hasLOC&amp;&amp;items.capEx!==null&amp;&amp;items.capEx!==0){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const addBack=Math.abs(items.capEx);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>adj+=addBack;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>adjLines.push({label:'+ CapEx add-back (LOC)',val:addBack});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>pendingCFImport={type,rowId:rid,noi:items.noi,rawCF:items.cashFlow,adjCf:adj,adjLines,propName,platform,periodLabel};</p>
+<p class="p1"><span class="Apple-converted-space">      </span>showCFModal();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>} catch(err){</p>
+<p class="p1"><span class="Apple-converted-space">      </span>alert('Could not read the file.\n\n'+err.message);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>reader.readAsArrayBuffer(file);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function showCFModal(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const {noi,rawCF,adjCf,adjLines,propName,platform,periodLabel}=pendingCFImport;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-platform').textContent=platform?`Detected platform: ${platform}`:'';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-prop').textContent=propName||'Could not detect';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-period').textContent=periodLabel||'—';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const noiEl=document.getElementById('cf-modal-noi');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>noiEl.textContent=noi!==null?fmtD(noi,2):'Not found';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>noiEl.className='modal-val'+(noi===null?' na':'');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-raw').textContent=rawCF!==null?fmtD(rawCF,2):'Not found';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-raw').className='modal-val'+(rawCF===null?' na':'');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const adjEl=document.getElementById('cf-modal-adj');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>adjEl.textContent=fmtD(adjCf,2);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>adjEl.className='modal-val'+(adjCf&lt;0?' na':'');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>// Build adjustment breakdown</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const breakdown=adjLines.map(l=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const valStr=l.val&lt;0?`($${Math.abs(l.val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})})`:`$${l.val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return `&lt;div style="display:flex;justify-content:space-between;gap:16px"&gt;&lt;span&gt;${l.label||'Cash Flow'}&lt;/span&gt;&lt;span&gt;${valStr}&lt;/span&gt;&lt;/div&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}).join('');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-adjustments').innerHTML=breakdown||'&lt;span style="color:var(--text3)"&gt;No adjustments&lt;/span&gt;';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const warnWrap=document.getElementById('cf-modal-warn-wrap');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const warn=document.getElementById('cf-modal-warn');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(rawCF===null){warnWrap.style.display='';warn.textContent='Cash Flow line not found in file.';}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>else warnWrap.style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-modal-apply-btn').disabled=rawCF===null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-import-modal').style.display='flex';</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function closeCFModal(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('cf-import-modal').style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>pendingCFImport=null;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function applyCFImport(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(!pendingCFImport)return;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const {type,rowId:rid,noi,rawCF,adjCf}=pendingCFImport;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const r=state[type].rows.find(r=&gt;r.id===rid);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(r){if(noi!==null)r.currentNoi=noi;r.cf=rawCF;r.adjCf=adjCf;r.cfImported=true;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>closeCFModal();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>renderTable(type);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function triggerUpload(type, rid){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const inp=document.createElement('input');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.type='file'; inp.accept='.xlsx,.xls';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.onchange=e=&gt;{parseStatement(e.target.files[0],type,rid);document.body.removeChild(inp);};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.body.appendChild(inp);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>inp.click();</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function parseStatement(file, type, rid){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const reader=new FileReader();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>reader.onload=e=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const wb=XLSX.read(e.target.result,{type:'array'});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const ws=wb.Sheets[wb.SheetNames[0]];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const periodMonths = getPeriodMonths(type);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>let platform='', propName='', headerRow=null, headerRowIdx=-1;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>let noi=null, cf=null;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// ── Detect platform and find headers ──</p>
+<p class="p1"><span class="Apple-converted-space">      </span>for(let i=0;i&lt;Math.min(data.length,15);i++){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const row=data[i];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const r0=String(row[0]||'').trim();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const r1=String(row[1]||'').trim();</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Appfolio: "Properties:" in col A or B</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(r0.startsWith('Properties:')||r1.startsWith('Properties:')){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>platform='Appfolio';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const raw=(r0.startsWith('Properties:')?r0:r1).replace('Properties:','').trim();</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const parts=raw.split(' - ');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>propName=parts.length&gt;=2?parts[1].trim():raw;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Buildium: property name is a standalone row (row 2, col A)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(i===2 &amp;&amp; !platform &amp;&amp; r0 &amp;&amp; !r0.includes('Income Statement') &amp;&amp; !r0.includes('Prepared')){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>platform='Buildium';</p>
+<p class="p1"><span class="Apple-converted-space">          </span>// Strip extra identifiers: "Bancroft Place Apartments - SD - PGO - ..."</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const parts=r0.split(' - ');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>propName=parts[0].trim();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Find the column header row (contains month-like values)</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(!headerRow &amp;&amp; row.some(c=&gt;String(c).match(/^\d{2}-\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/))){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>headerRow=row;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>headerRowIdx=i;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(!platform) platform='Unknown';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// ── Find which columns correspond to our period ──</p>
+<p class="p1"><span class="Apple-converted-space">      </span>let targetCols=[];</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(headerRow &amp;&amp; periodMonths){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>headerRow.forEach((h,ci)=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(periodMonths.some(pm=&gt;monthMatchesHeader(h,pm.year,pm.month))){</p>
+<p class="p1"><span class="Apple-converted-space">            </span>targetCols.push(ci);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const periodLabel = periodMonths</p>
+<p class="p1"><span class="Apple-converted-space">        </span>? `${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`</p>
+<p class="p1"><span class="Apple-converted-space">        </span>: 'Full period (no date filter)';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// ── Scan rows for NOI and Net Income ──</p>
+<p class="p1"><span class="Apple-converted-space">      </span>for(let i=headerRowIdx+1;i&lt;data.length;i++){</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const row=data[i];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const label=String(row[0]||'').trim().toLowerCase();</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Match NOI row</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const isNOI = label==='net operating income' ||</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>label==='noi - net operating income' ||</p>
+<p class="p1"><span class="Apple-converted-space">                      </span>(label.includes('noi') &amp;&amp; label.includes('net operating income'));</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Match Net Income row — must be exact, avoid "Net Non-operating Income" etc.</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const isNI = label==='net income';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>if((isNOI &amp;&amp; noi===null)||(isNI &amp;&amp; cf===null)){</p>
+<p class="p1"><span class="Apple-converted-space">          </span>let val=null;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(targetCols.length&gt;0){</p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Sum only the target period columns</p>
+<p class="p1"><span class="Apple-converted-space">            </span>val=targetCols.reduce((s,ci)=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">              </span>const v=parseFloat(String(row[ci]).replace(/,/g,''));</p>
+<p class="p1"><span class="Apple-converted-space">              </span>return s+(isNaN(v)?0:v);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>},0);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Fallback: use last numeric value (Total column)</p>
+<p class="p1"><span class="Apple-converted-space">            </span>for(let c=row.length-1;c&gt;=0;c--){</p>
+<p class="p1"><span class="Apple-converted-space">              </span>const v=parseFloat(String(row[c]).replace(/,/g,''));</p>
+<p class="p1"><span class="Apple-converted-space">              </span>if(!isNaN(v)){val=v;break;}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(isNOI &amp;&amp; noi===null) noi=val;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if(isNI<span class="Apple-converted-space">  </span>&amp;&amp; cf===null)<span class="Apple-converted-space">  </span>cf=val;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if(noi!==null &amp;&amp; cf!==null) break;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>pendingImport={type,rowId:rid,noi,cf,propName,platform,periodLabel};</p>
+<p class="p1"><span class="Apple-converted-space">      </span>showModal();</p>
+<p class="p1"><span class="Apple-converted-space">    </span>} catch(err){</p>
+<p class="p1"><span class="Apple-converted-space">      </span>alert('Could not read the file. Please make sure it is a valid Appfolio or Buildium Excel export.\n\n'+err.message);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>reader.readAsArrayBuffer(file);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function showModal(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const {noi,cf,propName,platform,periodLabel}=pendingImport;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('modal-platform').textContent=platform ? `Detected platform: ${platform}` : '';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('modal-prop').textContent=propName||'Could not detect';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('modal-period-info').textContent=periodLabel||'—';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const noiEl=document.getElementById('modal-noi');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cfEl=document.getElementById('modal-cf');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>noiEl.textContent=noi!==null?fmtD(noi,2):'Not found in file';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>noiEl.className='modal-val'+(noi===null?' na':'');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>cfEl.textContent=cf!==null?fmtD(cf,2):'Not found in file';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>cfEl.className='modal-val'+(cf===null?' na':'');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const warnWrap=document.getElementById('modal-warn-wrap');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const warn=document.getElementById('modal-warn');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const msgs=[];</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(noi===null) msgs.push('NOI could not be found — it will be left blank.');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(cf===null)<span class="Apple-converted-space">  </span>msgs.push('Net Income (cash flow) could not be found — it will be left blank.');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(msgs.length){warnWrap.style.display='';warn.textContent=msgs.join(' ');}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>else warnWrap.style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('modal-apply-btn').disabled=noi===null&amp;&amp;cf===null;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('import-modal').style.display='flex';</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function closeModal(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('import-modal').style.display='none';</p>
+<p class="p1"><span class="Apple-converted-space">  </span>pendingImport=null;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function applyImport(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(!pendingImport)return;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const {type,rowId:rid,noi,cf}=pendingImport;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const r=state[type].rows.find(r=&gt;r.id===rid);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(r){</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if(noi!==null) r.currentNoi=noi;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>if(cf!==null)<span class="Apple-converted-space">  </span>r.cf=cf;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>r.imported=true;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>closeModal();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>renderTable(type);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── tab ──────────────────────────────────────────────────────────────────────</p>
+<p class="p1">function switchTab(t){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>['nonpgo','pgo','results'].forEach(x=&gt;document.getElementById('tab-'+x).style.display=x===t?'':'none');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.querySelectorAll('.tab').forEach((el,i)=&gt;el.classList.toggle('active',['nonpgo','pgo','results'][i]===t));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(t==='results')renderResults();</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── CRUD ─────────────────────────────────────────────────────────────────────</p>
+<p class="p1">function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false});renderTable(type);}</p>
+<p class="p1">function removeLastRow(type){if(state[type].rows.length===0)return;state[type].rows.pop();renderTable(type);}</p>
+<p class="p1">function removeRow(type,id){state[type].rows=state[type].rows.filter(r=&gt;r.id!==id);renderTable(type);}</p>
+<p class="p1">function setRow(type,id,field,val){const r=state[type].rows.find(r=&gt;r.id===id);if(r){r[field]=val;renderTable(type);}}</p>
+<p class="p1">function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});renderGroups(type);renderTable(type);}</p>
+<p class="p1">function removeGroup(type,id){const g=state[type].groups.find(g=&gt;g.id===id);if(g)state[type].rows.forEach(r=&gt;{if(r.group===g.name)r.group='';});state[type].groups=state[type].groups.filter(g=&gt;g.id!==id);renderGroups(type);renderTable(type);}</p>
+<p class="p1">function setGroupName(type,id,val){const g=state[type].groups.find(g=&gt;g.id===id);const old=g?g.name:'';state[type].rows.forEach(r=&gt;{if(r.group===old)r.group=val;});if(g)g.name=val;renderGroups(type);renderTable(type);}</p>
+<p class="p1">function setGroupCap(type,id,val){const g=state[type].groups.find(g=&gt;g.id===id);if(g){g.capital=val;renderGroups(type);renderTable(type);}}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── render table ─────────────────────────────────────────────────────────────</p>
+<p class="p1">function renderTable(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const pool=parseFloat(document.getElementById('pool-'+type).value)||0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const n=state[type].rows.length, rate=n&gt;0?pool/n:0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cfMap=buildCFMap(type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const groupNames=state[type].groups.map(g=&gt;g.name);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const fb=document.getElementById('fbar-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(fb)fb.innerHTML=`&lt;strong&gt;Formula:&lt;/strong&gt; Applicable Bonus per property = Bonus Metric % × (${fmt(pool)} ÷ ${n} ${n===1?'property':'properties'}) = &lt;strong&gt;per-property rate: ${n&gt;0?fmtD(rate,2):'—'}&lt;/strong&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cm=document.getElementById('count-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(cm)cm.textContent=`${n} ${n===1?'property':'properties'} · rate: ${n&gt;0?fmtD(rate,2):'—'}`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const rmBtn=document.getElementById('btn-remove-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(rmBtn)rmBtn.disabled=n===0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const body=document.getElementById('body-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(n===0){body.innerHTML=`&lt;tr&gt;&lt;td colspan="17" class="empty-state"&gt;No properties — click "+ Add property".&lt;/td&gt;&lt;/tr&gt;`;renderGroups(type);return;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let totalBonus=0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const rows=state[type].rows.map(row=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const effectiveCF=row.adjCf!==''&amp;&amp;row.adjCf!==undefined?row.adjCf:row.cf;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const b=rate*(wOcc(ot)+wNOI(nt)+wCF(ct));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>totalBonus+=b;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const groupOpts=`&lt;option value=""&gt;— standalone —&lt;/option&gt;`+groupNames.map(g=&gt;`&lt;option value="${g}" ${row.group===g?'selected':''}&gt;${g}&lt;/option&gt;`).join('');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const capDisplay=row.capital!==''&amp;&amp;row.capital!==null?fmtAcct(row.capital):'';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const capCell=row.group?'&lt;span style="font-size:11px;color:var(--text3)"&gt;see group&lt;/span&gt;':editCell('&lt;span&gt;'+(capDisplay||'')+'&lt;/span&gt;',row.capital,type,row.id,'capital','0');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const priorVal=row.priorNoi!==''&amp;&amp;row.priorNoi!==null?row.priorNoi:'';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const uploadIcon=row.imported</p>
+<p class="p1"><span class="Apple-converted-space">      </span>?`&lt;svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;polyline points="2,9 6,13 14,4"/&gt;&lt;/svg&gt;`</p>
+<p class="p1"><span class="Apple-converted-space">      </span>:`&lt;svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M8 2v8M5 5l3-3 3 3"/&gt;&lt;rect x="2" y="10" width="12" height="4" rx="1"/&gt;&lt;/svg&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const occDisplay = row.occ!=='' ? fmtOcc(row.occ) : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const priorDisplay = priorVal!=='' ? fmtAcct(priorVal) : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const noiDisplay = row.currentNoi!=='' ? fmtAcct(row.currentNoi) : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const cfDisplay = row.cf!=='' ? fmtAcct(row.cf) : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const adjCfVal = row.adjCf!==''&amp;&amp;row.adjCf!==undefined ? row.adjCf : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const adjCfDisplay = adjCfVal!=='' ? fmtAcct(adjCfVal) : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const priorClass = parseFloat(priorVal)&lt;0 ? ' negative' : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const cfClass = parseFloat(row.cf)&lt;0 ? ' negative' : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// NOI color: green if current &gt; prior, red if current &lt; prior</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const priorN = parseFloat(priorVal), currentN = parseFloat(row.currentNoi);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const noiClass = (!isNaN(priorN)&amp;&amp;!isNaN(currentN))</p>
+<p class="p1"><span class="Apple-converted-space">      </span>? (currentN &gt; priorN ? 'noi-up' : currentN &lt; priorN ? 'noi-down' : '')</p>
+<p class="p1"><span class="Apple-converted-space">      </span>: (parseFloat(row.currentNoi)&lt;0 ? 'negative' : '');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>// AdjCF color: green if &gt; 0, red if &lt; 0</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const adjCfNum = parseFloat(adjCfVal);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const adjCfClass = !isNaN(adjCfNum) ? (adjCfNum &gt; 0 ? 'cf-positive' : adjCfNum &lt; 0 ? 'cf-negative' : '') : '';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const cfUploadIcon = row.cfImported</p>
+<p class="p1"><span class="Apple-converted-space">      </span>?`&lt;svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;polyline points="2,9 6,13 14,4"/&gt;&lt;/svg&gt;`</p>
+<p class="p1"><span class="Apple-converted-space">      </span>:`&lt;svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M8 2v8M5 5l3-3 3 3"/&gt;&lt;rect x="2" y="10" width="12" height="4" rx="1"/&gt;&lt;/svg&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return`&lt;tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;input value="${row.name}" oninput="setRow('${type}',${row.id},'name',this.value)"&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${editCell('&lt;span class="'+(parseFloat(row.occ)&lt;0?'negative':'')+'"&gt;'+(occDisplay||'')+'&lt;/span&gt;',row.occ,type,row.id,'occ','e.g. 94.56')}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${badge(ot)}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${editCell('&lt;span class="'+priorClass+'"&gt;'+(priorDisplay||'')+'&lt;/span&gt;',priorVal,type,row.id,'priorNoi','blank = N/A')}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${editCell('&lt;span class="'+noiClass+'"&gt;'+(noiDisplay||'')+'&lt;/span&gt;',row.currentNoi,type,row.id,'currentNoi','enter or import')}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${badge(nt)}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${editCell('&lt;span class="'+cfClass+'"&gt;'+(cfDisplay||'')+'&lt;/span&gt;',row.cf,type,row.id,'cf','enter or import')}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${editCell('&lt;span class="'+adjCfClass+'"&gt;'+(adjCfDisplay||'')+'&lt;/span&gt;',row.adjCf!==''&amp;&amp;row.adjCf!==undefined?row.adjCf:'',type,row.id,'adjCf','auto or override')}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${badge(ct)}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;select onchange="setRow('${type}',${row.id},'group',this.value)"&gt;${groupOpts}&lt;/select&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${capCell}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;label class="loc-check"&gt;&lt;input type="checkbox" ${row.loc?'checked':''} onchange="setRow('${type}',${row.id},'loc',this.checked)"&gt; LOC&lt;/label&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;select onchange="setRow('${type}',${row.id},'platform',this.value)" style="font-size:11px;color:var(--text2);"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;option value="appfolio" ${row.platform==='appfolio'?'selected':''}&gt;Appfolio&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;option value="buildium" ${row.platform==='buildium'?'selected':''}&gt;Buildium&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;option value="indigo" <span class="Apple-converted-space">  </span>${row.platform==='indigo'<span class="Apple-converted-space">  </span>?'selected':''}&gt;Manual&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/select&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${row.platform==='buildium'</p>
+<p class="p1"><span class="Apple-converted-space">        </span>? `&lt;button class="upload-btn ${row.imported?'loaded':''}" onclick="triggerUpload('${type}',${row.id})"&gt;${uploadIcon}${row.imported?'Imported':'Import income stmt'}&lt;/button&gt;`</p>
+<p class="p1"><span class="Apple-converted-space">        </span>: row.platform==='indigo'</p>
+<p class="p1"><span class="Apple-converted-space">          </span>? '&lt;span style="font-size:11px;color:var(--text3);font-style:italic"&gt;Manual entry&lt;/span&gt;'</p>
+<p class="p1"><span class="Apple-converted-space">          </span>: '&lt;span style="font-size:11px;color:var(--text3)"&gt;—&lt;/span&gt;'</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;${row.platform==='appfolio'</p>
+<p class="p1"><span class="Apple-converted-space">        </span>? `&lt;button class="upload-btn-cf ${row.cfImported?'loaded':''}" onclick="triggerCFUpload('${type}',${row.id})"&gt;${cfUploadIcon}${row.cfImported?'CF Imported':'Import CF stmt'}&lt;/button&gt;`</p>
+<p class="p1"><span class="Apple-converted-space">        </span>: '&lt;span style="font-size:11px;color:var(--text3)"&gt;—&lt;/span&gt;'</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td class="${b&gt;0?'bonus-val':'zero-val'}"&gt;${fmtD(b,2)}&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;td&gt;&lt;button class="del-btn" onclick="removeRow('${type}',${row.id})"&gt;×&lt;/button&gt;&lt;/td&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/tr&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const capped=totalBonus&gt;pool, displayTotal=Math.min(totalBonus,pool);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>rows.push(`&lt;tr class="total-row-tbl"&gt;&lt;td colspan="15" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px"&gt;${capped?`&lt;span class="cap-warn"&gt;⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}&lt;/span&gt;&amp;nbsp;&amp;nbsp;`:''}Total earned&lt;/td&gt;&lt;td class="bonus-val"&gt;${fmtD(displayTotal,2)}&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;`);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>body.innerHTML=rows.join('');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>renderGroups(type);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── render groups ────────────────────────────────────────────────────────────</p>
+<p class="p1">function renderGroups(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const cont=document.getElementById('groups-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>if(!state[type].groups.length){cont.innerHTML=`&lt;p class="empty-state"&gt;No syndication groups.&lt;/p&gt;`;return;}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>cont.innerHTML=state[type].groups.map(g=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const props=state[type].rows.filter(r=&gt;r.group===g.name);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const totalCF=props.reduce((s,r)=&gt;s+(parseFloat(r.adjCf!==''&amp;&amp;r.adjCf!==undefined?r.adjCf:r.cf)||0),0);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const k=parseFloat(g.capital);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const pct=(!isNaN(k)&amp;&amp;k!==0)?(totalCF*2/k*100):null;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const propNames=props.map(p=&gt;p.name||'(unnamed)').join(', ')||'No properties assigned';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return`&lt;div class="group-row"&gt;&lt;div class="group-head"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;input class="g-name-inp" value="${g.name}" oninput="setGroupName('${type}',${g.id},this.value)"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;span style="font-size:12px;color:var(--text3)"&gt;Unreturned capital:&lt;/span&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;input class="g-cap-inp" type="text" value="${g.capital!==''?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="$0" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const v=parseFloat(this.value.replace(/[^0-9.]/g,''))||0;setGroupCap('${type}',${g.id},v);this.value=v?'$'+v.toLocaleString('en-US'):'';"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="group-result"&gt;&lt;span style="color:var(--text3)"&gt;${fmt(totalCF)} CF · ${pct!==null?fmtP(pct)+' ann.':'—'}&lt;/span&gt;${badge(cfTierFromPct(pct))}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button class="del-btn" onclick="removeGroup('${type}',${g.id})"&gt;×&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;&lt;div class="group-props"&gt;Properties: ${propNames}&lt;/div&gt;&lt;/div&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}).join('');</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">// ─── results ──────────────────────────────────────────────────────────────────</p>
+<p class="p1">function calcEarned(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const pool=parseFloat(document.getElementById('pool-'+type).value)||0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const n=state[type].rows.length;if(!n)return 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const rate=pool/n, cfMap=buildCFMap(type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const raw=state[type].rows.reduce((s,r)=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const eCF=r.adjCf!==''&amp;&amp;r.adjCf!==undefined?r.adjCf:r.cf;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(eCF,r.capital));</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return s+rate*(wOcc(ot)+wNOI(nt)+wCF(ct));</p>
+<p class="p1"><span class="Apple-converted-space">  </span>},0);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>return Math.min(raw,pool);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function renderResults(){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>let grandEarned=0, grandPool=0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const sections=['nonpgo','pgo'].map(type=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const pool=parseFloat(document.getElementById('pool-'+type).value)||0;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const ps=document.getElementById('pstart-'+type).value, pe=document.getElementById('pend-'+type).value;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const period=ps&amp;&amp;pe?`${ps} to ${pe}`:'';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const cfMap=buildCFMap(type), rows=state[type].rows, n=rows.length, rate=n&gt;0?pool/n:0;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>let raw=0,occE=0,noiE=0,cfE=0,mO=0,t1O=0,t2O=0,t3O=0,mN=0,t1N=0,t2N=0,t3N=0,mC=0,t1C=0,t2C=0,t3C=0;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>rows.forEach(r=&gt;{</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const eCF=r.adjCf!==''&amp;&amp;r.adjCf!==undefined?r.adjCf:r.cf;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(eCF,r.capital));</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const ob=rate*wOcc(ot),nb=rate*wNOI(nt),cb=rate*wCF(ct);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>occE+=ob;noiE+=nb;cfE+=cb;raw+=ob+nb+cb;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(ot==='miss')mO++;else if(ot==='1')t1O++;else if(ot==='2')t2O++;else t3O++;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(nt==='miss'||nt==='na')mN++;else if(nt==='1')t1N++;else if(nt==='2')t2N++;else t3N++;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if(ct==='miss')mC++;else if(ct==='1')t1C++;else if(ct==='2')t2C++;else t3C++;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const capped=raw&gt;pool, earned=Math.min(raw,pool), cap=pool&gt;0?earned/pool*100:0, sc=raw&gt;0&amp;&amp;capped?earned/raw:1;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>grandEarned+=earned; grandPool+=pool;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const label=type==='nonpgo'?'Non-PGO':'PGO';</p>
+<p class="p1"><span class="Apple-converted-space">    </span>return`&lt;div class="section-result"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;h3&gt;${label} · ${period} · ${n} properties · per-property rate: ${n&gt;0?fmtD(rate,2):'—'}&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="smgrid"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="sm"&gt;&lt;div class="sm-label"&gt;Properties&lt;/div&gt;&lt;div class="sm-value"&gt;${n}&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="sm"&gt;&lt;div class="sm-label"&gt;Max pool&lt;/div&gt;&lt;div class="sm-value"&gt;${fmt(pool)}&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="sm" style="border:1px solid ${capped?'var(--amber)':'var(--accent)'}"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sm-label"&gt;Total earned&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sm-value" style="color:${capped?'var(--amber)':'var(--accent)'}"&gt;${fmtD(earned,2)}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="pct-bar-wrap"&gt;&lt;div class="pct-bar ${capped?'warn':''}" style="width:${Math.min(cap,100).toFixed(1)}%"&gt;&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="sm-sub"&gt;${fmtP(cap)} of pool${capped?' · capped':''}&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;table class="btbl"&gt;&lt;thead&gt;&lt;tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;th&gt;Performance goal&lt;/th&gt;&lt;th&gt;Missed&lt;/th&gt;&lt;th&gt;Missed bonus&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;th&gt;Tier 1&lt;/th&gt;&lt;th&gt;Tier 1 bonus&lt;/th&gt;&lt;th&gt;Tier 2&lt;/th&gt;&lt;th&gt;Tier 2 bonus&lt;/th&gt;&lt;th&gt;Tier 3&lt;/th&gt;&lt;th&gt;Tier 3 bonus&lt;/th&gt;&lt;th&gt;Total&lt;/th&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tr&gt;&lt;td&gt;NOI Increase&lt;/td&gt;&lt;td class="num"&gt;${mN}&lt;/td&gt;&lt;td class="num"&gt;$0.00&lt;/td&gt;&lt;td class="num"&gt;${t1N}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t1N*rate*0.05*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t2N}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t2N*rate*0.15*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t3N}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t3N*rate*0.25*sc,2)}&lt;/td&gt;&lt;td class="num" style="font-weight:500"&gt;${fmtD(noiE*sc,2)}&lt;/td&gt;&lt;/tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tr&gt;&lt;td&gt;Economic Occupancy&lt;/td&gt;&lt;td class="num"&gt;${mO}&lt;/td&gt;&lt;td class="num"&gt;$0.00&lt;/td&gt;&lt;td class="num"&gt;${t1O}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t1O*rate*0.05*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t2O}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t2O*rate*0.15*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t3O}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t3O*rate*0.25*sc,2)}&lt;/td&gt;&lt;td class="num" style="font-weight:500"&gt;${fmtD(occE*sc,2)}&lt;/td&gt;&lt;/tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tr&gt;&lt;td&gt;Cash Flow&lt;/td&gt;&lt;td class="num"&gt;${mC}&lt;/td&gt;&lt;td class="num"&gt;$0.00&lt;/td&gt;&lt;td class="num"&gt;${t1C}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t1C*rate*0.20*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t2C}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t2C*rate*0.35*sc,2)}&lt;/td&gt;&lt;td class="num"&gt;${t3C}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(t3C*rate*0.50*sc,2)}&lt;/td&gt;&lt;td class="num" style="font-weight:500"&gt;${fmtD(cfE*sc,2)}&lt;/td&gt;&lt;/tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;tr class="tot"&gt;&lt;td colspan="9" style="text-align:right"&gt;Total bonus${capped?' (capped)':''}&lt;/td&gt;&lt;td class="num"&gt;${fmtD(earned,2)}&lt;/td&gt;&lt;/tr&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/tbody&gt;&lt;/table&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}).join('');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const grandCap=grandPool&gt;0?grandEarned/grandPool*100:0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('grand-metrics').innerHTML=`</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metric"&gt;&lt;div class="metric-label"&gt;Total properties&lt;/div&gt;&lt;div class="metric-value"&gt;${state.nonpgo.rows.length+state.pgo.rows.length}&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metric"&gt;&lt;div class="metric-label"&gt;Combined max pool&lt;/div&gt;&lt;div class="metric-value" style="font-size:20px"&gt;${fmt(grandPool)}&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metric accent"&gt;&lt;div class="metric-label"&gt;Total earned&lt;/div&gt;&lt;div class="metric-value" style="font-size:20px"&gt;${fmtD(grandEarned,2)}&lt;/div&gt;&lt;div class="pct-bar-wrap"&gt;&lt;div class="pct-bar" style="width:${Math.min(grandCap,100).toFixed(1)}%"&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class="metric-sub"&gt;${fmtP(grandCap)} of combined pool&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metric"&gt;&lt;div class="metric-label"&gt;Non-PGO earned&lt;/div&gt;&lt;div class="metric-value" style="font-size:18px"&gt;${fmtD(calcEarned('nonpgo'),2)}&lt;/div&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div class="metric"&gt;&lt;div class="metric-label"&gt;PGO earned&lt;/div&gt;&lt;div class="metric-value" style="font-size:18px"&gt;${fmtD(calcEarned('pgo'),2)}&lt;/div&gt;&lt;/div&gt;`;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById('results-sections').innerHTML=sections;</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function focusPool(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const disp=document.getElementById('pool-'+type+'-display');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const hidden=document.getElementById('pool-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>disp.value=hidden.value;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>disp.select();</p>
+<p class="p1">}</p>
+<p class="p1">function blurPool(type){</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const disp=document.getElementById('pool-'+type+'-display');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const hidden=document.getElementById('pool-'+type);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const raw=parseFloat(disp.value.replace(/[^0-9.]/g,''))||0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>hidden.value=raw;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>disp.value='$'+raw.toLocaleString('en-US');</p>
+<p class="p1"><span class="Apple-converted-space">  </span>renderTable(type);</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">initFromSeed();</p>
+<p class="p1">renderTable('nonpgo');</p>
+<p class="p1">renderTable('pgo');</p>
+<p class="p1">renderGroups('nonpgo');</p>
+<p class="p1">renderGroups('pgo');</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
