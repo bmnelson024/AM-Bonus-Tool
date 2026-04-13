@@ -160,7 +160,10 @@
     <h1>AM Bonus Calculator</h1>
     <p>Incentive-Based Compensation Plan · Exhibit B · Oct 2025 – Mar 2026</p>
   </div>
-  <div style="display:flex;gap:8px;align-items:center;">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <button class="btn-nav" onclick="exportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬇ Export save</button>
+    <button class="btn-nav" onclick="triggerImportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬆ Import save</button>
+    <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
     <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
     <button class="btn-nav" onclick="switchTab('results')">View results →</button>
   </div>
@@ -244,6 +247,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('nonpgo')">Non-PGO properties</button>
     <button class="tab" onclick="switchTab('pgo')">PGO properties</button>
+    <button class="tab" onclick="switchTab('syndicates')">Syndication groups</button>
     <button class="tab" onclick="switchTab('results')">Results summary</button>
   </div>
 
@@ -389,6 +393,11 @@
     </div>
   </div>
 
+  <!-- SYNDICATION GROUPS -->
+  <div id="tab-syndicates" style="display:none">
+    <div id="synd-content"></div>
+  </div>
+
   <!-- RESULTS -->
   <div id="tab-results" style="display:none">
     <div class="metrics-grid" id="grand-metrics"></div>
@@ -405,7 +414,7 @@ const SEED = {
       {name:'MWP 3',capital:1825000},{name:'MWP 4',capital:2660000},
       {name:'MWP 5',capital:7610000},{name:'MWP 7',capital:5875000},
       {name:'Boulder Bancroft',capital:10218000},{name:'BG Champion',capital:9950000},
-      {name:'Eagle Annex',capital:1400000},{name:'Lionsgate',capital:1118000},
+      {name:'Eagle Annex / Langston Loge',capital:1400000},{name:'Lionsgate',capital:1118000},
       {name:'Maple Partners',capital:1116000},{name:'Preserve Partners',capital:1700000},
     ],
     rows: [
@@ -423,10 +432,10 @@ const SEED = {
       {name:'BG Flats',              units:42,  priorNoi:168736.92, group:'BG Champion',      capital:'', platform:'appfolio'},
       {name:'Champion Villas',       units:81,  priorNoi:382704.67, group:'BG Champion',      capital:'', platform:'appfolio'},
       {name:'15th Street 9 Plex',    units:9,   priorNoi:9573.98,   group:'',                 capital:87500, platform:'appfolio'},
-      {name:'The Landmark on Dakota', units:22, priorNoi:55570.54, group:'MWP 2', capital:'', platform:'buildium', loc:true},
+      {name:'The Landmark on Dakota', units:22, priorNoi:55570.54, group:'MWP 3', capital:'', platform:'buildium', loc:true},
       {name:'Bancroft Place',        units:52,  priorNoi:180998.13, group:'Boulder Bancroft', capital:'', platform:'buildium'},
       {name:'Boulder Pointe',        units:52,  priorNoi:251950.38, group:'Boulder Bancroft', capital:'', platform:'buildium'},
-      {name:'Eagle Creek',           units:65,  priorNoi:244068.45, group:'Eagle Annex',      capital:'', platform:'buildium'},
+      {name:'Eagle Creek',           units:65,  priorNoi:244068.45, group:'Eagle Annex / Langston Loge', capital:'', platform:'buildium'},
       {name:'Judee',                 units:56,  priorNoi:281934.37, group:'MWP 5',            capital:'', platform:'buildium'},
       {name:'Maple Park',            units:77,  priorNoi:240474.53, group:'Maple Partners',   capital:'', platform:'buildium'},
       {name:'The Preserve',          units:72,  priorNoi:223411.01, group:'Preserve Partners',capital:'', platform:'buildium'},
@@ -492,10 +501,22 @@ function wNOI(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
 function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
 function buildCFMap(type){
   const map={};
+  // Build a set of all group names across both tabs with their capital
+  const allGroupCapital={};
+  ['nonpgo','pgo'].forEach(t=>{
+    state[t].groups.forEach(g=>{
+      if(!allGroupCapital[g.name]&&g.capital) allGroupCapital[g.name]=g.capital;
+    });
+  });
   state[type].groups.forEach(g=>{
-    const k=parseFloat(g.capital);
-    if(!isNaN(k)&&k!==0){const total=state[type].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf)||0),0);map[g.name]=cfTierFromPct((total*2/k)*100);}
-    else map[g.name]='miss';
+    const k=parseFloat(allGroupCapital[g.name]||g.capital);
+    if(!isNaN(k)&&k!==0){
+      // Sum CF across BOTH tabs for this group name (cross-tab pooling)
+      const total=['nonpgo','pgo'].reduce((sum,t)=>{
+        return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf)||0),0);
+      },0);
+      map[g.name]=cfTierFromPct((total*2/k)*100);
+    } else map[g.name]='miss';
   });
   return map;
 }
@@ -912,9 +933,10 @@ function applyImport(){
 
 // ─── tab ──────────────────────────────────────────────────────────────────────
 function switchTab(t){
-  ['nonpgo','pgo','results'].forEach(x=>document.getElementById('tab-'+x).style.display=x===t?'':'none');
-  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['nonpgo','pgo','results'][i]===t));
+  ['nonpgo','pgo','syndicates','results'].forEach(x=>document.getElementById('tab-'+x).style.display=x===t?'':'none');
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['nonpgo','pgo','syndicates','results'][i]===t));
   if(t==='results')renderResults();
+  if(t==='syndicates')renderSyndicates();
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
@@ -1195,6 +1217,253 @@ function resetToDefaults(){
   initFromSeed();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
+}
+
+// ─── syndication groups tab ───────────────────────────────────────────────────
+function renderSyndicates(){
+  const cont = document.getElementById('synd-content');
+  if (!cont) return;
+
+  // Build a unified group map across both tabs
+  const allGroups = {};
+
+  ['nonpgo','pgo'].forEach(type => {
+    state[type].groups.forEach(g => {
+      if (!allGroups[g.name]) {
+        allGroups[g.name] = { name: g.name, capital: g.capital, properties: [] };
+      } else if (g.capital && !allGroups[g.name].capital) {
+        allGroups[g.name].capital = g.capital;
+      }
+    });
+    state[type].rows.forEach(r => {
+      if (r.group && allGroups[r.group]) {
+        allGroups[r.group].properties.push({ ...r, tab: type });
+      }
+    });
+  });
+
+  if (!Object.keys(allGroups).length) {
+    cont.innerHTML = '<p class="empty-state">No syndication groups defined yet.</p>';
+    return;
+  }
+
+  const html = Object.values(allGroups).map(g => {
+    const k = parseFloat(g.capital);
+    const totalCF = g.properties.reduce((s,r) => {
+      const cf = r.adjCf!==''&&r.adjCf!==undefined ? r.adjCf : r.cf;
+      return s + (parseFloat(cf)||0);
+    }, 0);
+    const annualized = (!isNaN(k) && k!==0) ? (totalCF*2/k)*100 : null;
+    const tier = cfTierFromPct(annualized);
+    const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
+
+    // Property rows
+    const propRows = g.properties.map(r => {
+      const cf = r.adjCf!==''&&r.adjCf!==undefined ? r.adjCf : r.cf;
+      const cfNum = parseFloat(cf);
+      const cfDisplay = cf!=='' ? fmtAcct(cf) : '<span style="color:var(--text3);font-style:italic">not entered</span>';
+      const cfClass = !isNaN(cfNum) ? (cfNum>0?'cf-positive':cfNum<0?'cf-negative':'') : '';
+      const tabLabel = r.tab==='nonpgo'
+        ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 6px;border-radius:10px;font-weight:500">Non-PGO</span>'
+        : '<span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:10px;font-weight:500">PGO</span>';
+      const noiTierBadge = badge(noiTier(r.priorNoi, r.currentNoi));
+      const occTierBadge = badge(occTier(r.occ));
+
+      // Pool rate for this property's tab
+      const pool = parseFloat(document.getElementById('pool-'+r.tab).value)||0;
+      const n = state[r.tab].rows.length;
+      const rate = n>0 ? pool/n : 0;
+
+      return `<tr>
+        <td style="padding-left:20px">${r.name||'<em style="color:var(--text3)">unnamed</em>'}</td>
+        <td>${tabLabel}</td>
+        <td>${occTierBadge}</td>
+        <td>${noiTierBadge}</td>
+        <td class="${cfClass}" style="font-family:'DM Mono',monospace;font-size:12px">${cfDisplay}</td>
+      </tr>`;
+    }).join('');
+
+    const noProps = g.properties.length === 0;
+
+    return `<div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div>
+          <span class="card-title">${g.name}</span>
+          <span style="font-size:12px;color:var(--text3);margin-left:12px">Unreturned capital: ${capDisplay}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace">
+            Combined CF: <span class="${totalCF>0?'cf-positive':totalCF<0?'cf-negative':''}">${fmtAcct(totalCF)||'—'}</span>
+          </span>
+          <span style="font-size:12px;color:var(--text2)">
+            ${annualized!==null ? fmtP(annualized)+' ann.' : '—'}
+          </span>
+          ${badge(tier)}
+        </div>
+      </div>
+      ${noProps
+        ? '<p class="empty-state">No properties assigned to this group.</p>'
+        : `<div class="tbl-wrap"><table>
+            <thead><tr>
+              <th>Property</th>
+              <th>Tab</th>
+              <th>Occ tier</th>
+              <th>NOI tier</th>
+              <th>Adj cash flow</th>
+            </tr></thead>
+            <tbody>
+              ${propRows}
+              <tr style="background:var(--surface2);font-weight:600">
+                <td colspan="4" style="text-align:right;padding-right:12px;font-size:12px;color:var(--text2)">Combined adjusted cash flow</td>
+                <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600" class="${totalCF>0?'cf-positive':totalCF<0?'cf-negative':''}">${fmtAcct(totalCF)||'—'}</td>
+              </tr>
+            </tbody>
+          </table></div>`
+      }
+    </div>`;
+  }).join('');
+
+  cont.innerHTML = html;
+}
+
+// ─── export / import save file ───────────────────────────────────────────────
+function exportSave(){
+  try {
+    const payload = {
+      version: 'am_bonus_v1',
+      exportedAt: new Date().toISOString(),
+      state,
+      rowId, groupId,
+      pools: {
+        nonpgo: document.getElementById('pool-nonpgo').value,
+        pgo:    document.getElementById('pool-pgo').value
+      },
+      periods: {
+        nonpgo: { start: document.getElementById('pstart-nonpgo').value, end: document.getElementById('pend-nonpgo').value },
+        pgo:    { start: document.getElementById('pstart-pgo').value,    end: document.getElementById('pend-pgo').value }
+      }
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const ps = document.getElementById('pstart-nonpgo').value || 'unknown';
+    const pe = document.getElementById('pend-nonpgo').value || 'unknown';
+    a.href = url;
+    a.download = `AM_Bonus_${ps}_to_${pe}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+function triggerImportSave(){
+  if (!confirm('Importing a save file will replace all current data. Continue?')) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.style.display = 'none';
+  inp.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const payload = JSON.parse(ev.target.result);
+        if (!payload.state || !payload.state.nonpgo || !payload.state.pgo) {
+          alert('Invalid save file — missing state data.'); return;
+        }
+        state.nonpgo = payload.state.nonpgo;
+        state.pgo    = payload.state.pgo;
+        rowId   = payload.rowId   || 0;
+        groupId = payload.groupId || 0;
+        if (payload.pools) {
+          ['nonpgo','pgo'].forEach(type => {
+            const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
+            document.getElementById('pool-'+type).value = v;
+            document.getElementById('pool-'+type+'-display').value = '$'+v.toLocaleString('en-US');
+          });
+        }
+        if (payload.periods) {
+          ['nonpgo','pgo'].forEach(type => {
+            const p = payload.periods[type];
+            if (p) {
+              document.getElementById('pstart-'+type).value = p.start || '2025-10';
+              document.getElementById('pend-'+type).value   = p.end   || '2026-03';
+            }
+          });
+        }
+        saveState();
+        renderTable('nonpgo'); renderTable('pgo');
+        renderGroups('nonpgo'); renderGroups('pgo');
+        alert('Save file loaded successfully!');
+      } catch(err) { alert('Could not read save file: ' + err.message); }
+    };
+    reader.readAsText(file);
+    document.body.removeChild(inp);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+// ─── roll to next period ──────────────────────────────────────────────────────
+function rollToNextPeriod(){
+  const ps = document.getElementById('pstart-nonpgo').value; // e.g. "2025-10"
+  const pe = document.getElementById('pend-nonpgo').value;   // e.g. "2026-03"
+  if (!ps || !pe) { alert('Please set a period start and end before rolling forward.'); return; }
+
+  // Calculate next period (advance by 6 months)
+  const [sy, sm] = ps.split('-').map(Number);
+  const [ey, em] = pe.split('-').map(Number);
+  const newSM = sm + 6 > 12 ? sm - 6 : sm + 6;
+  const newSY = sm + 6 > 12 ? sy + 1 : sy;
+  const newEM = em + 6 > 12 ? em - 6 : em + 6;
+  const newEY = em + 6 > 12 ? ey + 1 : ey;
+  const newStart = `${newSY}-${String(newSM).padStart(2,'0')}`;
+  const newEnd   = `${newEY}-${String(newEM).padStart(2,'0')}`;
+
+  const msg = `This will:
+
+` +
+    `• Set period to ${newStart} → ${newEnd}
+` +
+    `• Promote current NOI → Prior NOI for all properties
+` +
+    `• Clear current NOI, Cash Flow, Adj Cash Flow, and Ec Occ
+` +
+    `• Keep all properties, groups, unreturned capital, LOC flags, and platforms
+
+` +
+    `A save file of the current period will be downloaded first.
+
+Continue?`;
+
+  if (!confirm(msg)) return;
+
+  // Export current period first as a backup
+  exportSave();
+
+  // Roll each property in both tabs
+  ['nonpgo','pgo'].forEach(type => {
+    state[type].rows.forEach(r => {
+      r.priorNoi    = r.currentNoi !== '' ? r.currentNoi : r.priorNoi;
+      r.currentNoi  = '';
+      r.cf          = '';
+      r.adjCf       = '';
+      r.occ         = '';
+      r.imported    = false;
+      r.cfImported  = false;
+    });
+
+    // Update period inputs
+    document.getElementById('pstart-'+type).value = newStart;
+    document.getElementById('pend-'+type).value   = newEnd;
+  });
+
+  saveState();
+  renderTable('nonpgo'); renderTable('pgo');
+  renderGroups('nonpgo'); renderGroups('pgo');
+  alert(`Rolled forward to ${newStart} → ${newEnd}. Prior NOI has been updated from current period data.`);
 }
 
 // ─── boot ─────────────────────────────────────────────────────────────────────
