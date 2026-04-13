@@ -528,7 +528,7 @@ function activateEdit(el,type,id,field,placeholder){
   inp.type='number';inp.step='any';inp.value=raw;inp.placeholder=placeholder;
   inp.style.cssText='width:100%;padding:4px 7px;border:1px solid var(--accent);border-radius:5px;background:var(--bg);color:var(--text);font-size:12.5px;font-family:\'DM Sans\',sans-serif;';
   inp.oninput=()=>{ const r=state[type].rows.find(r=>r.id===id); if(r)r[field]=inp.value; };
-  inp.onblur=()=>renderTable(type);
+  inp.onblur=()=>{saveState();renderTable(type);};
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key==='Tab')inp.blur();};
   el.replaceWith(inp); inp.focus(); inp.select();
 }
