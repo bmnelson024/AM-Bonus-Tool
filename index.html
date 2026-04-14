@@ -161,8 +161,6 @@
     <p>Incentive-Based Compensation Plan · Exhibit B · Oct 2025 – Mar 2026</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <button class="btn-nav" onclick="exportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬇ Export save</button>
-    <button class="btn-nav" onclick="triggerImportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬆ Import save</button>
     <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
     <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
     <button class="btn-nav" onclick="switchTab('results')">View results →</button>
@@ -311,6 +309,7 @@
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:110px">Import cash flow</th>
           <th style="min-width:85px">Total bonus</th>
+          <th style="min-width:160px">Notes</th>
           <th></th>
         </tr></thead>
         <tbody id="body-nonpgo"></tbody></table>
@@ -385,6 +384,7 @@
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:110px">Import cash flow</th>
           <th style="min-width:85px">Total bonus</th>
+          <th style="min-width:160px">Notes</th>
           <th></th>
         </tr></thead>
         <tbody id="body-pgo"></tbody></table>
@@ -493,7 +493,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',cfImported:false,imported:false}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',cfImported:false,imported:false,notes:''}));
   });
 }
 
@@ -946,7 +946,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
 function removeLastRow(type){if(state[type].rows.length===0)return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -968,7 +968,7 @@ function renderTable(type){
   const rmBtn=document.getElementById('btn-remove-'+type);
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
-  if(n===0){body.innerHTML=`<tr><td colspan="20" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
+  if(n===0){body.innerHTML=`<tr><td colspan="21" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
   let totalBonus=0;
   const rows=state[type].rows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
@@ -1039,11 +1039,12 @@ function renderTable(type){
         : '<span style="font-size:11px;color:var(--text3)">—</span>'
       }</td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
+      <td><input value="${row.notes||''}" oninput="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);font-style:${row.notes?'normal':'italic'}"></td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
-  rows.push(`<tr class="total-row-tbl"><td colspan="18" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
+  rows.push(`<tr class="total-row-tbl"><td colspan="19" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
 }
