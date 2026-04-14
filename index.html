@@ -293,21 +293,24 @@
         <table><thead><tr>
           <th style="min-width:155px">Property name</th>
           <th style="min-width:48px">Units</th>
-          <th style="min-width:105px">Ec occ (decimal)</th>
+          <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
+          <th style="min-width:80px">Occ bonus</th>
           <th style="min-width:115px">Prior NOI Apr–Sep 25 ($)</th>
           <th style="min-width:115px">Current NOI ($)</th>
           <th style="min-width:68px">NOI tier</th>
+          <th style="min-width:80px">NOI bonus</th>
           <th style="min-width:115px">Cash flow ($)</th>
           <th style="min-width:115px">Adj cash flow ($)</th>
           <th style="min-width:68px">CF tier</th>
+          <th style="min-width:80px">CF bonus</th>
           <th style="min-width:130px">Syndication group</th>
           <th style="min-width:130px">Unreturned capital ($)</th>
           <th style="min-width:75px">Line of credit</th>
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:110px">Import cash flow</th>
-          <th style="min-width:85px">Bonus</th>
+          <th style="min-width:85px">Total bonus</th>
           <th></th>
         </tr></thead>
         <tbody id="body-nonpgo"></tbody></table>
@@ -364,21 +367,24 @@
         <table><thead><tr>
           <th style="min-width:155px">Property name</th>
           <th style="min-width:48px">Units</th>
-          <th style="min-width:105px">Ec occ (decimal)</th>
+          <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
+          <th style="min-width:80px">Occ bonus</th>
           <th style="min-width:115px">Prior NOI Apr–Sep 25 ($)</th>
           <th style="min-width:115px">Current NOI ($)</th>
           <th style="min-width:68px">NOI tier</th>
+          <th style="min-width:80px">NOI bonus</th>
           <th style="min-width:115px">Cash flow ($)</th>
           <th style="min-width:115px">Adj cash flow ($)</th>
           <th style="min-width:68px">CF tier</th>
+          <th style="min-width:80px">CF bonus</th>
           <th style="min-width:130px">Syndication group</th>
           <th style="min-width:130px">Unreturned capital ($)</th>
           <th style="min-width:75px">Line of credit</th>
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:110px">Import cash flow</th>
-          <th style="min-width:85px">Bonus</th>
+          <th style="min-width:85px">Total bonus</th>
           <th></th>
         </tr></thead>
         <tbody id="body-pgo"></tbody></table>
@@ -962,13 +968,14 @@ function renderTable(type){
   const rmBtn=document.getElementById('btn-remove-'+type);
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
-  if(n===0){body.innerHTML=`<tr><td colspan="17" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
+  if(n===0){body.innerHTML=`<tr><td colspan="20" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
   let totalBonus=0;
   const rows=state[type].rows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
     const effectiveCF=row.adjCf!==''&&row.adjCf!==undefined?row.adjCf:row.cf;
     const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital));
-    const b=rate*(wOcc(ot)+wNOI(nt)+wCF(ct));
+    const ob=rate*wOcc(ot), nb=rate*wNOI(nt), cb=rate*wCF(ct);
+    const b=ob+nb+cb;
     totalBonus+=b;
     const groupOpts=`<option value="">— standalone —</option>`+groupNames.map(g=>`<option value="${g}" ${row.group===g?'selected':''}>${g}</option>`).join('');
     const capDisplay=row.capital!==''&&row.capital!==null?fmtAcct(row.capital):'';
@@ -996,17 +1003,23 @@ function renderTable(type){
     const cfUploadIcon = row.cfImported
       ?`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>`
       :`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><rect x="2" y="10" width="12" height="4" rx="1"/></svg>`;
+    const obDisplay = ob>0 ? fmtD(ob,2) : '<span style="color:var(--text3)">—</span>';
+    const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
+    const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
     return`<tr>
       <td><input value="${row.name}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${editCell('<span class="'+(parseFloat(row.occ)<0?'negative':'')+'">'+(occDisplay||'')+'</span>',row.occ,type,row.id,'occ','e.g. 94.56')}</td>
       <td>${badge(ot)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${obDisplay}</td>
       <td>${editCell('<span class="'+priorClass+'">'+(priorDisplay||'')+'</span>',priorVal,type,row.id,'priorNoi','blank = N/A')}</td>
       <td>${editCell('<span class="'+noiClass+'">'+(noiDisplay||'')+'</span>',row.currentNoi,type,row.id,'currentNoi','enter or import')}</td>
       <td>${badge(nt)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
       <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',row.adjCf!==''&&row.adjCf!==undefined?row.adjCf:'',type,row.id,'adjCf','auto or override')}</td>
       <td>${badge(ct)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
       <td>${capCell}</td>
       <td><label class="loc-check"><input type="checkbox" ${row.loc?'checked':''} onchange="setRow('${type}',${row.id},'loc',this.checked)"> LOC</label></td>
@@ -1030,7 +1043,7 @@ function renderTable(type){
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
-  rows.push(`<tr class="total-row-tbl"><td colspan="15" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
+  rows.push(`<tr class="total-row-tbl"><td colspan="18" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
 }
