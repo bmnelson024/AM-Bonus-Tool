@@ -1039,7 +1039,7 @@ function renderTable(type){
         : '<span style="font-size:11px;color:var(--text3)">—</span>'
       }</td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
-      <td><input value="${row.notes||''}" oninput="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);font-style:${row.notes?'normal':'italic'}"></td>
+      <td><input value="${row.notes||''}" onchange="setRow('${type}',${row.id},'notes',this.value)" onblur="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
     </tr>`;
   });
