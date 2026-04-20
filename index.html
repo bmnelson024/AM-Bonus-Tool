@@ -105,6 +105,9 @@
   .btn-apply:hover{background:#234a30;}
   .btn-apply:disabled{background:var(--text3);cursor:not-allowed;}
 
+
+  #gh-status{ font-size:11px; font-family:'DM Mono',monospace; transition:color 0.3s; white-space:nowrap; color:rgba(255,255,255,0.6); }
+
   /* Groups */
   .group-row{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;}
   .group-head{padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
@@ -161,11 +164,15 @@
     <p>Incentive-Based Compensation Plan · Exhibit B · Oct 2025 – Mar 2026</p>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span id="gh-status">Connecting…</span>
+    <button class="btn-nav" onclick="exportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬇ Export backup</button>
     <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
     <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
     <button class="btn-nav" onclick="switchTab('results')">View results →</button>
   </div>
 </header>
+
+
 
 <!-- CF Import Modal -->
 <div class="modal-overlay" id="cf-import-modal" style="display:none">
@@ -507,7 +514,6 @@ function wNOI(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
 function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
 function buildCFMap(type){
   const map={};
-  // Build a set of all group names across both tabs with their capital
   const allGroupCapital={};
   ['nonpgo','pgo'].forEach(t=>{
     state[t].groups.forEach(g=>{
@@ -517,7 +523,6 @@ function buildCFMap(type){
   state[type].groups.forEach(g=>{
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     if(!isNaN(k)&&k!==0){
-      // Sum CF across BOTH tabs for this group name (cross-tab pooling)
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
         return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf)||0),0);
       },0);
@@ -561,10 +566,8 @@ function activateEdit(el,type,id,field,placeholder){
 }
 
 function getPeriodMonths(type) {
-  // Returns array of strings like ["10-2025","11-2025",...,"03-2026"] (Buildium format)
-  // and ["Oct 2025","Nov 2025",...,"Mar 2026"] (Appfolio format)
-  const ps = document.getElementById('pstart-'+type).value; // "2025-10"
-  const pe = document.getElementById('pend-'+type).value;   // "2026-03"
+  const ps = document.getElementById('pstart-'+type).value;
+  const pe = document.getElementById('pend-'+type).value;
   if(!ps||!pe) return null;
   const [sy,sm]=ps.split('-').map(Number);
   const [ey,em]=pe.split('-').map(Number);
@@ -581,16 +584,13 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function monthMatchesHeader(header, year, month) {
   const h = String(header).trim();
-  // Buildium: "10-2025", "03-2026"
   const bld = `${String(month).padStart(2,'0')}-${year}`;
   if(h === bld) return true;
-  // Appfolio: "Oct 2025", "Mar 2026"
   const app = `${MONTH_NAMES[month-1]} ${year}`;
   if(h === app) return true;
   return false;
 }
 
-// ─── Excel parser ─────────────────────────────────────────────────────────────
 // ─── Cash Flow Statement parser ───────────────────────────────────────────────
 let pendingCFImport = null;
 
@@ -643,7 +643,6 @@ function parseCFStatement(file, type, rid){
         ?`${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`
         :'Full period';
 
-      // Line items we care about
       const items={noi:null,cashFlow:null,secDeposit:null,secDepositsHeld:null,mgmtSecDeposit:null,trustAccount:null,clearingAccount:null,accountsPayable:null,prepaidRent:null,prepaidCharges:null,prepayments:null,prepaidExpenses:null,lastMonthsRent:null,accruals:null,realEstateTaxPayable:null,propertyTaxEscrow:null,propertyTaxInsEscrow:null,accruedPropertyTaxes:null,taxInsPayable:null,escrowHeldAtBank:null,ownerContribution:null,ownerDistributions:null,priorYrDist:null,lineOfCredit:null,capEx:null};
       const LABELS={
         noi:                  ['noi - net operating income','net operating income'],
@@ -689,19 +688,13 @@ function parseCFStatement(file, type, rid){
         }
       }
 
-      // Get the LOC flag for this row
       const r=state[type].rows.find(r=>r.id===rid);
       const hasLOC=r?r.loc:false;
 
-      // Calculate adjusted cash flow
       let adj=items.cashFlow||0;
       const adjLines=[];
       if(items.cashFlow!==null) adjLines.push({label:'Cash Flow',val:items.cashFlow,sign:''});
 
-      // Always subtract each item (negative values naturally add back)
-      // Trust account, clearing account, and secDepositsHeld are recognized but intentionally NOT subtracted
-      // They are wash items that offset other lines already being subtracted
-      // capEx handled separately below based on LOC flag
       const alwaysSubtract = [
         ['secDeposit',           '− Security Deposit'],
         ['mgmtSecDeposit',       '− Mgmt Held Security Deposits'],
@@ -729,7 +722,6 @@ function parseCFStatement(file, type, rid){
           adjLines.push({label,val:items[key]});
         }
       }
-      // CapEx: add back absolute value only for LOC properties
       if(hasLOC&&items.capEx!==null&&items.capEx!==0){
         const addBack=Math.abs(items.capEx);
         adj+=addBack;
@@ -758,7 +750,6 @@ function showCFModal(){
   const adjEl=document.getElementById('cf-modal-adj');
   adjEl.textContent=fmtD(adjCf,2);
   adjEl.className='modal-val'+(adjCf<0?' na':'');
-  // Build adjustment breakdown
   const breakdown=adjLines.map(l=>{
     const valStr=l.val<0?`($${Math.abs(l.val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})})`:`$${l.val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
     return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${l.label||'Cash Flow'}</span><span>${valStr}</span></div>`;
@@ -809,28 +800,23 @@ function parseStatement(file, type, rid){
       let platform='', propName='', headerRow=null, headerRowIdx=-1;
       let noi=null, cf=null;
 
-      // ── Detect platform and find headers ──
       for(let i=0;i<Math.min(data.length,15);i++){
         const row=data[i];
         const r0=String(row[0]||'').trim();
         const r1=String(row[1]||'').trim();
 
-        // Appfolio: "Properties:" in col A or B
         if(r0.startsWith('Properties:')||r1.startsWith('Properties:')){
           platform='Appfolio';
           const raw=(r0.startsWith('Properties:')?r0:r1).replace('Properties:','').trim();
           const parts=raw.split(' - ');
           propName=parts.length>=2?parts[1].trim():raw;
         }
-        // Buildium: property name is a standalone row (row 2, col A)
         if(i===2 && !platform && r0 && !r0.includes('Income Statement') && !r0.includes('Prepared')){
           platform='Buildium';
-          // Strip extra identifiers: "Bancroft Place Apartments - SD - PGO - ..."
           const parts=r0.split(' - ');
           propName=parts[0].trim();
         }
 
-        // Find the column header row (contains month-like values)
         if(!headerRow && row.some(c=>String(c).match(/^\d{2}-\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/))){
           headerRow=row;
           headerRowIdx=i;
@@ -839,7 +825,6 @@ function parseStatement(file, type, rid){
 
       if(!platform) platform='Unknown';
 
-      // ── Find which columns correspond to our period ──
       let targetCols=[];
       if(headerRow && periodMonths){
         headerRow.forEach((h,ci)=>{
@@ -853,29 +838,24 @@ function parseStatement(file, type, rid){
         ? `${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`
         : 'Full period (no date filter)';
 
-      // ── Scan rows for NOI and Net Income ──
       for(let i=headerRowIdx+1;i<data.length;i++){
         const row=data[i];
         const label=String(row[0]||'').trim().toLowerCase();
 
-        // Match NOI row
         const isNOI = label==='net operating income' ||
                       label==='noi - net operating income' ||
                       (label.includes('noi') && label.includes('net operating income'));
 
-        // Match Net Income row — must be exact, avoid "Net Non-operating Income" etc.
         const isNI = label==='net income';
 
         if((isNOI && noi===null)||(isNI && cf===null)){
           let val=null;
           if(targetCols.length>0){
-            // Sum only the target period columns
             val=targetCols.reduce((s,ci)=>{
               const v=parseFloat(String(row[ci]).replace(/,/g,''));
               return s+(isNaN(v)?0:v);
             },0);
           } else {
-            // Fallback: use last numeric value (Total column)
             for(let c=row.length-1;c>=0;c--){
               const v=parseFloat(String(row[c]).replace(/,/g,''));
               if(!isNaN(v)){val=v;break;}
@@ -992,12 +972,10 @@ function renderTable(type){
     const adjCfDisplay = adjCfVal!=='' ? fmtAcct(adjCfVal) : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
     const cfClass = parseFloat(row.cf)<0 ? ' negative' : '';
-    // NOI color: green if current > prior, red if current < prior
     const priorN = parseFloat(priorVal), currentN = parseFloat(row.currentNoi);
     const noiClass = (!isNaN(priorN)&&!isNaN(currentN))
       ? (currentN > priorN ? 'noi-up' : currentN < priorN ? 'noi-down' : '')
       : (parseFloat(row.currentNoi)<0 ? 'negative' : '');
-    // AdjCF color: green if > 0, red if < 0
     const adjCfNum = parseFloat(adjCfVal);
     const adjCfClass = !isNaN(adjCfNum) ? (adjCfNum > 0 ? 'cf-positive' : adjCfNum < 0 ? 'cf-negative' : '') : '';
     const cfUploadIcon = row.cfImported
@@ -1151,75 +1129,147 @@ function blurPool(type){
   renderTable(type);
 }
 
-// ─── localStorage persistence ─────────────────────────────────────────────────
-const STORAGE_KEY = 'am_bonus_calculator_v1';
+// ─── Supabase storage ────────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://beoquaazkkxjisxnmrmg.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlb3F1YWF6a2t4amlzeG5tcm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MTI3MzgsImV4cCI6MjA5MjI4ODczOH0.Cskq3HwXi9qydh0jBV9FerFTcAH1V6IhgHZmYlehdJY';
+const STORAGE_KEY   = 'am_bonus_calculator_v1'; // local backup key
+const SB_TABLE      = 'bonus_data';
+const SB_ROW_ID     = 'main';
 
-function saveState(){
-  try {
-    const payload = {
-      state,
-      rowId, groupId,
-      pools: {
-        nonpgo: document.getElementById('pool-nonpgo').value,
-        pgo:    document.getElementById('pool-pgo').value
-      },
-      periods: {
-        nonpgo: { start: document.getElementById('pstart-nonpgo').value, end: document.getElementById('pend-nonpgo').value },
-        pgo:    { start: document.getElementById('pstart-pgo').value,    end: document.getElementById('pend-pgo').value }
-      }
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch(e) { console.warn('Could not save state:', e); }
+let saveTimer = null;
+
+function setGhStatus(msg, type){
+  const el = document.getElementById('gh-status');
+  if(!el) return;
+  const colors = {ok:'#6ee7a0', warn:'#fde68a', err:'#fca5a5', info:'rgba(255,255,255,0.55)'};
+  el.textContent = msg;
+  el.style.color = colors[type] || colors.info;
 }
 
-function loadState(){
+function buildPayload(){
+  return {
+    version: 'am_bonus_v2',
+    savedAt: new Date().toISOString(),
+    state,
+    rowId, groupId,
+    pools: {
+      nonpgo: document.getElementById('pool-nonpgo').value,
+      pgo:    document.getElementById('pool-pgo').value
+    },
+    periods: {
+      nonpgo: { start: document.getElementById('pstart-nonpgo').value, end: document.getElementById('pend-nonpgo').value },
+      pgo:    { start: document.getElementById('pstart-pgo').value,    end: document.getElementById('pend-pgo').value }
+    }
+  };
+}
+
+function applyPayload(payload){
+  if(!payload.state || !payload.state.nonpgo || !payload.state.pgo) return false;
+  state.nonpgo = payload.state.nonpgo;
+  state.pgo    = payload.state.pgo;
+  rowId   = payload.rowId   || 0;
+  groupId = payload.groupId || 0;
+  if(payload.pools){
+    ['nonpgo','pgo'].forEach(type=>{
+      const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
+      document.getElementById('pool-'+type).value = v;
+      document.getElementById('pool-'+type+'-display').value = '$'+v.toLocaleString('en-US');
+    });
+  }
+  if(payload.periods){
+    ['nonpgo','pgo'].forEach(type=>{
+      const p = payload.periods[type];
+      if(p){
+        document.getElementById('pstart-'+type).value = p.start || '2025-10';
+        document.getElementById('pend-'+type).value   = p.end   || '2026-03';
+      }
+    });
+  }
+  return true;
+}
+
+function sbHeaders(){
+  return {
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal'
+  };
+}
+
+async function loadFromSupabase(){
+  setGhStatus('Loading…', 'info');
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const payload = JSON.parse(raw);
-    if (!payload.state || !payload.state.nonpgo || !payload.state.pgo) return false;
-
-    // Restore state
-    state.nonpgo = payload.state.nonpgo;
-    state.pgo    = payload.state.pgo;
-    rowId   = payload.rowId   || 0;
-    groupId = payload.groupId || 0;
-
-    // Restore pool values
-    if (payload.pools) {
-      ['nonpgo','pgo'].forEach(type => {
-        const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
-        document.getElementById('pool-'+type).value = v;
-        document.getElementById('pool-'+type+'-display').value = '$'+v.toLocaleString('en-US');
-      });
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${SB_TABLE}?id=eq.${SB_ROW_ID}&select=payload`,
+      { headers: sbHeaders() }
+    );
+    if(!res.ok){ setGhStatus('Load error: '+res.status, 'err'); return false; }
+    const rows = await res.json();
+    if(!rows.length || !rows[0].payload || !rows[0].payload.state){
+      setGhStatus('No saved data yet', 'info');
+      return false;
     }
-
-    // Restore period values
-    if (payload.periods) {
-      ['nonpgo','pgo'].forEach(type => {
-        const p = payload.periods[type];
-        if (p) {
-          document.getElementById('pstart-'+type).value = p.start || '2025-10';
-          document.getElementById('pend-'+type).value   = p.end   || '2026-03';
-        }
-      });
+    const payload = rows[0].payload;
+    const ok = applyPayload(payload);
+    if(ok){
+      const d = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : '';
+      setGhStatus('Loaded ✓  ' + d, 'ok');
+    } else {
+      setGhStatus('Bad data format', 'err');
     }
-
-    return true;
-  } catch(e) {
-    console.warn('Could not load state:', e);
+    return ok;
+  } catch(e){
+    setGhStatus('Load failed: '+e.message, 'err');
     return false;
   }
+}
+
+async function saveToSupabase(){
+  setGhStatus('Saving…', 'info');
+  try {
+    const payload = buildPayload();
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/${SB_TABLE}?id=eq.${SB_ROW_ID}`,
+      {
+        method: 'PATCH',
+        headers: sbHeaders(),
+        body: JSON.stringify({ payload, updated_at: new Date().toISOString() })
+      }
+    );
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      setGhStatus('Save error: '+(err.message||res.status), 'err');
+      return;
+    }
+    setGhStatus('Saved ✓  '+new Date().toLocaleTimeString(), 'ok');
+    // Local backup
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch(e){}
+  } catch(e){
+    setGhStatus('Save failed: '+e.message, 'err');
+  }
+}
+
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>saveToSupabase(), 1500);
+}
+
+function loadStateLocalFallback(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    const payload = JSON.parse(raw);
+    return applyPayload(payload);
+  } catch(e){ return false; }
 }
 
 function resetToDefaults(){
   if (!confirm('Reset all data to defaults? This will clear all entered values and cannot be undone.')) return;
   localStorage.removeItem(STORAGE_KEY);
-  // Reset counters and state
   state.nonpgo = {rows:[],groups:[]};
   state.pgo    = {rows:[],groups:[]};
   rowId = 0; groupId = 0;
-  // Reset pool displays
   document.getElementById('pool-nonpgo').value = 60000;
   document.getElementById('pool-nonpgo-display').value = '$60,000';
   document.getElementById('pool-pgo').value = 30000;
@@ -1231,6 +1281,8 @@ function resetToDefaults(){
   initFromSeed();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
+  // Push reset to GitHub
+  saveToGitHub();
 }
 
 // ─── syndication groups tab ───────────────────────────────────────────────────
@@ -1238,7 +1290,6 @@ function renderSyndicates(){
   const cont = document.getElementById('synd-content');
   if (!cont) return;
 
-  // Build a unified group map across both tabs
   const allGroups = {};
 
   ['nonpgo','pgo'].forEach(type => {
@@ -1271,7 +1322,6 @@ function renderSyndicates(){
     const tier = cfTierFromPct(annualized);
     const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
 
-    // Property rows
     const propRows = g.properties.map(r => {
       const cf = r.adjCf!==''&&r.adjCf!==undefined ? r.adjCf : r.cf;
       const cfNum = parseFloat(cf);
@@ -1282,11 +1332,6 @@ function renderSyndicates(){
         : '<span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:10px;font-weight:500">PGO</span>';
       const noiTierBadge = badge(noiTier(r.priorNoi, r.currentNoi));
       const occTierBadge = badge(occTier(r.occ));
-
-      // Pool rate for this property's tab
-      const pool = parseFloat(document.getElementById('pool-'+r.tab).value)||0;
-      const n = state[r.tab].rows.length;
-      const rate = n>0 ? pool/n : 0;
 
       return `<tr>
         <td style="padding-left:20px">${r.name||'<em style="color:var(--text3)">unnamed</em>'}</td>
@@ -1340,23 +1385,10 @@ function renderSyndicates(){
   cont.innerHTML = html;
 }
 
-// ─── export / import save file ───────────────────────────────────────────────
+// ─── export backup ───────────────────────────────────────────────────────────
 function exportSave(){
   try {
-    const payload = {
-      version: 'am_bonus_v1',
-      exportedAt: new Date().toISOString(),
-      state,
-      rowId, groupId,
-      pools: {
-        nonpgo: document.getElementById('pool-nonpgo').value,
-        pgo:    document.getElementById('pool-pgo').value
-      },
-      periods: {
-        nonpgo: { start: document.getElementById('pstart-nonpgo').value, end: document.getElementById('pend-nonpgo').value },
-        pgo:    { start: document.getElementById('pstart-pgo').value,    end: document.getElementById('pend-pgo').value }
-      }
-    };
+    const payload = buildPayload();
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], {type:'application/json'});
     const url = URL.createObjectURL(blob);
@@ -1364,7 +1396,7 @@ function exportSave(){
     const ps = document.getElementById('pstart-nonpgo').value || 'unknown';
     const pe = document.getElementById('pend-nonpgo').value || 'unknown';
     a.href = url;
-    a.download = `AM_Bonus_${ps}_to_${pe}.json`;
+    a.download = `AM_Bonus_Backup_${ps}_to_${pe}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1372,61 +1404,12 @@ function exportSave(){
   } catch(e) { alert('Export failed: ' + e.message); }
 }
 
-function triggerImportSave(){
-  if (!confirm('Importing a save file will replace all current data. Continue?')) return;
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = '.json';
-  inp.style.display = 'none';
-  inp.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const payload = JSON.parse(ev.target.result);
-        if (!payload.state || !payload.state.nonpgo || !payload.state.pgo) {
-          alert('Invalid save file — missing state data.'); return;
-        }
-        state.nonpgo = payload.state.nonpgo;
-        state.pgo    = payload.state.pgo;
-        rowId   = payload.rowId   || 0;
-        groupId = payload.groupId || 0;
-        if (payload.pools) {
-          ['nonpgo','pgo'].forEach(type => {
-            const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
-            document.getElementById('pool-'+type).value = v;
-            document.getElementById('pool-'+type+'-display').value = '$'+v.toLocaleString('en-US');
-          });
-        }
-        if (payload.periods) {
-          ['nonpgo','pgo'].forEach(type => {
-            const p = payload.periods[type];
-            if (p) {
-              document.getElementById('pstart-'+type).value = p.start || '2025-10';
-              document.getElementById('pend-'+type).value   = p.end   || '2026-03';
-            }
-          });
-        }
-        saveState();
-        renderTable('nonpgo'); renderTable('pgo');
-        renderGroups('nonpgo'); renderGroups('pgo');
-        alert('Save file loaded successfully!');
-      } catch(err) { alert('Could not read save file: ' + err.message); }
-    };
-    reader.readAsText(file);
-    document.body.removeChild(inp);
-  };
-  document.body.appendChild(inp);
-  inp.click();
-}
-
 // ─── roll to next period ──────────────────────────────────────────────────────
 function rollToNextPeriod(){
-  const ps = document.getElementById('pstart-nonpgo').value; // e.g. "2025-10"
-  const pe = document.getElementById('pend-nonpgo').value;   // e.g. "2026-03"
+  const ps = document.getElementById('pstart-nonpgo').value;
+  const pe = document.getElementById('pend-nonpgo').value;
   if (!ps || !pe) { alert('Please set a period start and end before rolling forward.'); return; }
 
-  // Calculate next period (advance by 6 months)
   const [sy, sm] = ps.split('-').map(Number);
   const [ey, em] = pe.split('-').map(Number);
   const newSM = sm + 6 > 12 ? sm - 6 : sm + 6;
@@ -1436,28 +1419,12 @@ function rollToNextPeriod(){
   const newStart = `${newSY}-${String(newSM).padStart(2,'0')}`;
   const newEnd   = `${newEY}-${String(newEM).padStart(2,'0')}`;
 
-  const msg = `This will:
-
-` +
-    `• Set period to ${newStart} → ${newEnd}
-` +
-    `• Promote current NOI → Prior NOI for all properties
-` +
-    `• Clear current NOI, Cash Flow, Adj Cash Flow, and Ec Occ
-` +
-    `• Keep all properties, groups, unreturned capital, LOC flags, and platforms
-
-` +
-    `A save file of the current period will be downloaded first.
-
-Continue?`;
+  const msg = `This will:\n\n• Set period to ${newStart} → ${newEnd}\n• Promote current NOI → Prior NOI for all properties\n• Clear current NOI, Cash Flow, Adj Cash Flow, and Ec Occ\n• Keep all properties, groups, unreturned capital, LOC flags, and platforms\n\nA backup file will be downloaded first.\n\nContinue?`;
 
   if (!confirm(msg)) return;
 
-  // Export current period first as a backup
   exportSave();
 
-  // Roll each property in both tabs
   ['nonpgo','pgo'].forEach(type => {
     state[type].rows.forEach(r => {
       r.priorNoi    = r.currentNoi !== '' ? r.currentNoi : r.priorNoi;
@@ -1468,8 +1435,6 @@ Continue?`;
       r.imported    = false;
       r.cfImported  = false;
     });
-
-    // Update period inputs
     document.getElementById('pstart-'+type).value = newStart;
     document.getElementById('pend-'+type).value   = newEnd;
   });
@@ -1477,16 +1442,28 @@ Continue?`;
   saveState();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
-  alert(`Rolled forward to ${newStart} → ${newEnd}. Prior NOI has been updated from current period data.`);
+  alert(`Rolled forward to ${newStart} → ${newEnd}. Prior NOI updated.`);
 }
 
 // ─── boot ─────────────────────────────────────────────────────────────────────
-const restored = loadState();
-if (!restored) initFromSeed();
+// Load from localStorage first (instant, synchronous) as a fallback
+// Then async load from GitHub which will override if successful
+const localOk = loadStateLocalFallback();
+if (!localOk) initFromSeed();
 renderTable('nonpgo');
 renderTable('pgo');
 renderGroups('nonpgo');
 renderGroups('pgo');
+
+// Async load from Supabase (overrides local fallback if successful)
+loadFromSupabase().then(ok => {
+  if(ok){
+    renderTable('nonpgo');
+    renderTable('pgo');
+    renderGroups('nonpgo');
+    renderGroups('pgo');
+  }
+});
 </script>
 </body>
 </html>
