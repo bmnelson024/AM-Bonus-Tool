@@ -493,6 +493,10 @@ const SEED = {
   }
 };
 
+// ─── icon constants ──────────────────────────────────────────────────────────
+const ICON_UPLOAD   = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><rect x="2" y="10" width="12" height="4" rx="1"/></svg>';
+const ICON_CHECKMARK= '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>';
+
 // ─── state ────────────────────────────────────────────────────────────────────
 const state = {nonpgo:{rows:[],groups:[]},pgo:{rows:[],groups:[]}};
 let rowId=0, groupId=0, pendingImport=null;
@@ -510,8 +514,9 @@ function noiTier(prior,current){if(prior===''||prior==null)return'na';const p=pa
 function cfTierFromPct(pct){if(pct===null||isNaN(pct))return'miss';return pct>=9?'3':pct>=6?'2':pct>=3?'1':'miss';}
 function annPct(cf,cap){const c=parseFloat(cf),k=parseFloat(cap);if(isNaN(c)||isNaN(k)||k===0)return null;return(c*2/k)*100;}
 function wOcc(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
-function wNOI(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
+function wNOI(t){return wOcc(t);} // same tier weights as occ
 function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
+function getEffectiveCF(r){return r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf;}
 function buildCFMap(type){
   const map={};
   const allGroupCapital={};
@@ -524,7 +529,7 @@ function buildCFMap(type){
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     if(!isNaN(k)&&k!==0){
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
-        return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf)||0),0);
+        return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0);
       },0);
       map[g.name]=cfTierFromPct((total*2/k)*100);
     } else map[g.name]='miss';
@@ -952,7 +957,7 @@ function renderTable(type){
   let totalBonus=0;
   const rows=state[type].rows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
-    const effectiveCF=row.adjCf!==''&&row.adjCf!==undefined?row.adjCf:row.cf;
+    const effectiveCF=getEffectiveCF(row);
     const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital));
     const ob=rate*wOcc(ot), nb=rate*wNOI(nt), cb=rate*wCF(ct);
     const b=ob+nb+cb;
@@ -961,14 +966,12 @@ function renderTable(type){
     const capDisplay=row.capital!==''&&row.capital!==null?fmtAcct(row.capital):'';
     const capCell=row.group?'<span style="font-size:11px;color:var(--text3)">see group</span>':editCell('<span>'+(capDisplay||'')+'</span>',row.capital,type,row.id,'capital','0');
     const priorVal=row.priorNoi!==''&&row.priorNoi!==null?row.priorNoi:'';
-    const uploadIcon=row.imported
-      ?`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>`
-      :`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><rect x="2" y="10" width="12" height="4" rx="1"/></svg>`;
+    const uploadIcon=row.imported?ICON_CHECKMARK:ICON_UPLOAD;
     const occDisplay = row.occ!=='' ? fmtOcc(row.occ) : '';
     const priorDisplay = priorVal!=='' ? fmtAcct(priorVal) : '';
     const noiDisplay = row.currentNoi!=='' ? fmtAcct(row.currentNoi) : '';
     const cfDisplay = row.cf!=='' ? fmtAcct(row.cf) : '';
-    const adjCfVal = row.adjCf!==''&&row.adjCf!==undefined ? row.adjCf : '';
+    const adjCfVal = row.adjCf!==''&&row.adjCf!==undefined ? row.adjCf : ''; // kept for display formatting
     const adjCfDisplay = adjCfVal!=='' ? fmtAcct(adjCfVal) : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
     const cfClass = parseFloat(row.cf)<0 ? ' negative' : '';
@@ -978,9 +981,7 @@ function renderTable(type){
       : (parseFloat(row.currentNoi)<0 ? 'negative' : '');
     const adjCfNum = parseFloat(adjCfVal);
     const adjCfClass = !isNaN(adjCfNum) ? (adjCfNum > 0 ? 'cf-positive' : adjCfNum < 0 ? 'cf-negative' : '') : '';
-    const cfUploadIcon = row.cfImported
-      ?`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>`
-      :`<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><rect x="2" y="10" width="12" height="4" rx="1"/></svg>`;
+    const cfUploadIcon=row.cfImported?ICON_CHECKMARK:ICON_UPLOAD;
     const obDisplay = ob>0 ? fmtD(ob,2) : '<span style="color:var(--text3)">—</span>';
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
@@ -995,7 +996,7 @@ function renderTable(type){
       <td>${badge(nt)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
-      <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',row.adjCf!==''&&row.adjCf!==undefined?row.adjCf:'',type,row.id,'adjCf','auto or override')}</td>
+      <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',adjCfVal,type,row.id,'adjCf','auto or override')}</td>
       <td>${badge(ct)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
@@ -1017,7 +1018,7 @@ function renderTable(type){
         : '<span style="font-size:11px;color:var(--text3)">—</span>'
       }</td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
-      <td><input value="${row.notes||''}" onchange="setRow('${type}',${row.id},'notes',this.value)" onblur="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
+      <td><input value="${row.notes||''}" onchange="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
     </tr>`;
   });
@@ -1031,10 +1032,15 @@ function renderTable(type){
 function renderGroups(type){
   const cont=document.getElementById('groups-'+type);
   if(!state[type].groups.length){cont.innerHTML=`<p class="empty-state">No syndication groups.</p>`;return;}
+  // Build cross-tab capital map so shared groups (e.g. MWP 1) use consistent capital
+  const allGroupCapital={};
+  ['nonpgo','pgo'].forEach(t=>state[t].groups.forEach(g=>{if(!allGroupCapital[g.name]&&g.capital)allGroupCapital[g.name]=g.capital;}));
   cont.innerHTML=state[type].groups.map(g=>{
+    // Sum CF across BOTH tabs for this group name to match buildCFMap logic
+    const totalCF=['nonpgo','pgo'].reduce((sum,t)=>sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0),0);
+    // Display only properties in THIS tab for the panel list
     const props=state[type].rows.filter(r=>r.group===g.name);
-    const totalCF=props.reduce((s,r)=>s+(parseFloat(r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf)||0),0);
-    const k=parseFloat(g.capital);
+    const k=parseFloat(allGroupCapital[g.name]||g.capital);
     const pct=(!isNaN(k)&&k!==0)?(totalCF*2/k*100):null;
     const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
     return`<div class="group-row"><div class="group-head">
@@ -1053,8 +1059,7 @@ function calcEarned(type){
   const n=state[type].rows.length;if(!n)return 0;
   const rate=pool/n, cfMap=buildCFMap(type);
   const raw=state[type].rows.reduce((s,r)=>{
-    const eCF=r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf;
-    const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(eCF,r.capital));
+    const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital));
     return s+rate*(wOcc(ot)+wNOI(nt)+wCF(ct));
   },0);
   return Math.min(raw,pool);
@@ -1062,6 +1067,7 @@ function calcEarned(type){
 
 function renderResults(){
   let grandEarned=0, grandPool=0;
+  const tabEarned={};
   const sections=['nonpgo','pgo'].map(type=>{
     const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
     const ps=document.getElementById('pstart-'+type).value, pe=document.getElementById('pend-'+type).value;
@@ -1069,8 +1075,7 @@ function renderResults(){
     const cfMap=buildCFMap(type), rows=state[type].rows, n=rows.length, rate=n>0?pool/n:0;
     let raw=0,occE=0,noiE=0,cfE=0,mO=0,t1O=0,t2O=0,t3O=0,mN=0,t1N=0,t2N=0,t3N=0,mC=0,t1C=0,t2C=0,t3C=0;
     rows.forEach(r=>{
-      const eCF=r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf;
-      const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(eCF,r.capital));
+      const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital));
       const ob=rate*wOcc(ot),nb=rate*wNOI(nt),cb=rate*wCF(ct);
       occE+=ob;noiE+=nb;cfE+=cb;raw+=ob+nb+cb;
       if(ot==='miss')mO++;else if(ot==='1')t1O++;else if(ot==='2')t2O++;else t3O++;
@@ -1078,7 +1083,7 @@ function renderResults(){
       if(ct==='miss')mC++;else if(ct==='1')t1C++;else if(ct==='2')t2C++;else t3C++;
     });
     const capped=raw>pool, earned=Math.min(raw,pool), cap=pool>0?earned/pool*100:0, sc=raw>0&&capped?earned/raw:1;
-    grandEarned+=earned; grandPool+=pool;
+    grandEarned+=earned; grandPool+=pool; tabEarned[type]=earned;
     const label=type==='nonpgo'?'Non-PGO':'PGO';
     return`<div class="section-result">
       <h3>${label} · ${period} · ${n} properties · per-property rate: ${n>0?fmtD(rate,2):'—'}</h3>
@@ -1108,8 +1113,8 @@ function renderResults(){
     <div class="metric"><div class="metric-label">Total properties</div><div class="metric-value">${state.nonpgo.rows.length+state.pgo.rows.length}</div></div>
     <div class="metric"><div class="metric-label">Combined max pool</div><div class="metric-value" style="font-size:20px">${fmt(grandPool)}</div></div>
     <div class="metric accent"><div class="metric-label">Total earned</div><div class="metric-value" style="font-size:20px">${fmtD(grandEarned,2)}</div><div class="pct-bar-wrap"><div class="pct-bar" style="width:${Math.min(grandCap,100).toFixed(1)}%"></div></div><div class="metric-sub">${fmtP(grandCap)} of combined pool</div></div>
-    <div class="metric"><div class="metric-label">Non-PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(calcEarned('nonpgo'),2)}</div></div>
-    <div class="metric"><div class="metric-label">PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(calcEarned('pgo'),2)}</div></div>`;
+    <div class="metric"><div class="metric-label">Non-PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.nonpgo||0,2)}</div></div>
+    <div class="metric"><div class="metric-label">PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.pgo||0,2)}</div></div>`;
   document.getElementById('results-sections').innerHTML=sections;
 }
 
@@ -1281,8 +1286,7 @@ function resetToDefaults(){
   initFromSeed();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
-  // Push reset to GitHub
-  saveToGitHub();
+  saveToSupabase();
 }
 
 // ─── syndication groups tab ───────────────────────────────────────────────────
@@ -1315,15 +1319,14 @@ function renderSyndicates(){
   const html = Object.values(allGroups).map(g => {
     const k = parseFloat(g.capital);
     const totalCF = g.properties.reduce((s,r) => {
-      const cf = r.adjCf!==''&&r.adjCf!==undefined ? r.adjCf : r.cf;
-      return s + (parseFloat(cf)||0);
+      return s + (parseFloat(getEffectiveCF(r))||0);
     }, 0);
     const annualized = (!isNaN(k) && k!==0) ? (totalCF*2/k)*100 : null;
     const tier = cfTierFromPct(annualized);
     const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
 
     const propRows = g.properties.map(r => {
-      const cf = r.adjCf!==''&&r.adjCf!==undefined ? r.adjCf : r.cf;
+      const cf = getEffectiveCF(r);
       const cfNum = parseFloat(cf);
       const cfDisplay = cf!=='' ? fmtAcct(cf) : '<span style="color:var(--text3);font-style:italic">not entered</span>';
       const cfClass = !isNaN(cfNum) ? (cfNum>0?'cf-positive':cfNum<0?'cf-negative':'') : '';
@@ -1447,7 +1450,7 @@ function rollToNextPeriod(){
 
 // ─── boot ─────────────────────────────────────────────────────────────────────
 // Load from localStorage first (instant, synchronous) as a fallback
-// Then async load from GitHub which will override if successful
+// Then async load from Supabase which will override if successful
 const localOk = loadStateLocalFallback();
 if (!localOk) initFromSeed();
 renderTable('nonpgo');
