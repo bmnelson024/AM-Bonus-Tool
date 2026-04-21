@@ -85,6 +85,8 @@
   .upload-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
   .upload-btn.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
   .upload-btn svg{width:11px;height:11px;flex-shrink:0;}
+  .dl-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all 0.15s;flex-shrink:0;}
+  .dl-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
 
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}
@@ -596,6 +598,63 @@ function monthMatchesHeader(header, year, month) {
   return false;
 }
 
+// ─── Supabase file storage ───────────────────────────────────────────────────
+const SB_BUCKET = 'income-statements';
+
+function fileStoragePath(row, fileType){
+  const ps = document.getElementById('pstart-nonpgo').value || 'unknown';
+  const pe = document.getElementById('pend-nonpgo').value   || 'unknown';
+  const safeName = (row.name||'unnamed').replace(/[^a-zA-Z0-9_-]/g,'_');
+  return safeName + '_' + ps + '_' + pe + '_' + fileType + '.xlsx';
+}
+
+async function uploadFileToStorage(file, path){
+  const arrayBuf = await file.arrayBuffer();
+  const res = await fetch(
+    SUPABASE_URL + '/storage/v1/object/' + SB_BUCKET + '/' + encodeURIComponent(path),
+    {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'x-upsert': 'true'
+      },
+      body: arrayBuf
+    }
+  );
+  if(!res.ok){
+    const err = await res.json().catch(function(){ return {}; });
+    throw new Error(err.message || res.status);
+  }
+  return path;
+}
+
+async function downloadStoredFile(path, filename){
+  try {
+    const res = await fetch(
+      SUPABASE_URL + '/storage/v1/object/sign/' + SB_BUCKET + '/' + encodeURIComponent(path),
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ expiresIn: 3600 })
+      }
+    );
+    if(!res.ok) throw new Error('Could not get download URL');
+    const data = await res.json();
+    const url = SUPABASE_URL + '/storage/v1' + data.signedURL;
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch(e) {
+    alert('Could not download file: ' + e.message);
+  }
+}
+
 // ─── Cash Flow Statement parser ───────────────────────────────────────────────
 let pendingCFImport = null;
 
@@ -733,7 +792,7 @@ function parseCFStatement(file, type, rid){
         adjLines.push({label:'+ CapEx add-back (LOC)',val:addBack});
       }
 
-      pendingCFImport={type,rowId:rid,noi:items.noi,rawCF:items.cashFlow,adjCf:adj,adjLines,propName,platform,periodLabel};
+      pendingCFImport={type,rowId:rid,noi:items.noi,rawCF:items.cashFlow,adjCf:adj,adjLines,propName,platform,periodLabel,file};
       showCFModal();
     } catch(err){
       alert('Could not read the file.\n\n'+err.message);
@@ -773,11 +832,21 @@ function closeCFModal(){
   pendingCFImport=null;
 }
 
-function applyCFImport(){
+async function applyCFImport(){
   if(!pendingCFImport)return;
-  const {type,rowId:rid,noi,rawCF,adjCf}=pendingCFImport;
+  const {type,rowId:rid,noi,rawCF,adjCf,file}=pendingCFImport;
   const r=state[type].rows.find(r=>r.id===rid);
-  if(r){if(noi!==null)r.currentNoi=noi;r.cf=rawCF;r.adjCf=adjCf;r.cfImported=true;}
+  if(r){
+    if(noi!==null)r.currentNoi=noi;
+    r.cf=rawCF; r.adjCf=adjCf; r.cfImported=true;
+    if(file){
+      try {
+        const path = fileStoragePath(r, 'cf');
+        await uploadFileToStorage(file, path);
+        r.cfFilePath = path;
+      } catch(e){ console.warn('CF file upload failed:', e.message); }
+    }
+  }
   closeCFModal();
   saveState();
   renderTable(type);
@@ -872,7 +941,7 @@ function parseStatement(file, type, rid){
         if(noi!==null && cf!==null) break;
       }
 
-      pendingImport={type,rowId:rid,noi,cf,propName,platform,periodLabel};
+      pendingImport={type,rowId:rid,noi,cf,propName,platform,periodLabel,file};
       showModal();
     } catch(err){
       alert('Could not read the file. Please make sure it is a valid Appfolio or Buildium Excel export.\n\n'+err.message);
@@ -908,14 +977,21 @@ function closeModal(){
   pendingImport=null;
 }
 
-function applyImport(){
+async function applyImport(){
   if(!pendingImport)return;
-  const {type,rowId:rid,noi,cf}=pendingImport;
+  const {type,rowId:rid,noi,cf,file}=pendingImport;
   const r=state[type].rows.find(r=>r.id===rid);
   if(r){
     if(noi!==null) r.currentNoi=noi;
     if(cf!==null)  r.cf=cf;
     r.imported=true;
+    if(file){
+      try {
+        const path = fileStoragePath(r, 'income');
+        await uploadFileToStorage(file, path);
+        r.incomeFilePath = path;
+      } catch(e){ console.warn('Income file upload failed:', e.message); }
+    }
   }
   closeModal();
   saveState();
@@ -1007,16 +1083,26 @@ function renderTable(type){
         <option value="buildium" ${row.platform==='buildium'?'selected':''}>Buildium</option>
         <option value="indigo"   ${row.platform==='indigo'  ?'selected':''}>Manual</option>
       </select></td>
-      <td>${row.platform==='buildium'
-        ? `<button class="upload-btn ${row.imported?'loaded':''}" onclick="triggerUpload('${type}',${row.id})">${uploadIcon}${row.imported?'Imported':'Import income stmt'}</button>`
-        : row.platform==='indigo'
-          ? '<span style="font-size:11px;color:var(--text3);font-style:italic">Manual entry</span>'
+      <td>
+        ${row.platform==='buildium'
+          ? `<div style="display:flex;align-items:center;gap:4px">
+               <button class="upload-btn ${row.imported?'loaded':''}" onclick="triggerUpload('${type}',${row.id})">${uploadIcon}${row.imported?'Imported':'Import income stmt'}</button>
+               ${row.incomeFilePath?`<button class="dl-btn" title="Download stored income statement" data-path="${row.incomeFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_income.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>`:''}
+             </div>`
+          : row.platform==='indigo'
+            ? '<span style="font-size:11px;color:var(--text3);font-style:italic">Manual entry</span>'
+            : '<span style="font-size:11px;color:var(--text3)">—</span>'
+        }
+      </td>
+      <td>
+        ${row.platform==='appfolio'
+          ? `<div style="display:flex;align-items:center;gap:4px">
+               <button class="upload-btn-cf ${row.cfImported?'loaded':''}" onclick="triggerCFUpload('${type}',${row.id})">${cfUploadIcon}${row.cfImported?'CF Imported':'Import CF stmt'}</button>
+               ${row.cfFilePath?`<button class="dl-btn" title="Download stored CF statement" data-path="${row.cfFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_cf.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>`:''}
+             </div>`
           : '<span style="font-size:11px;color:var(--text3)">—</span>'
-      }</td>
-      <td>${row.platform==='appfolio'
-        ? `<button class="upload-btn-cf ${row.cfImported?'loaded':''}" onclick="triggerCFUpload('${type}',${row.id})">${cfUploadIcon}${row.cfImported?'CF Imported':'Import CF stmt'}</button>`
-        : '<span style="font-size:11px;color:var(--text3)">—</span>'
-      }</td>
+        }
+      </td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
       <td><input value="${row.notes||''}" onchange="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
@@ -1435,8 +1521,10 @@ function rollToNextPeriod(){
       r.cf          = '';
       r.adjCf       = '';
       r.occ         = '';
-      r.imported    = false;
-      r.cfImported  = false;
+      r.imported      = false;
+      r.cfImported    = false;
+      r.incomeFilePath= '';
+      r.cfFilePath    = '';
     });
     document.getElementById('pstart-'+type).value = newStart;
     document.getElementById('pend-'+type).value   = newEnd;
