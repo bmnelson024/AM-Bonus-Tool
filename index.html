@@ -64,7 +64,8 @@
   .cf-negative{color:#b91c1c;font-weight:500;}
   .tbl-wrap{overflow-x:auto;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  th{padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
+  th{padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;position:sticky;top:0;z-index:2;}
+  th.col-sticky{z-index:3;}
   td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
   .col-sticky{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,0.06);}
   thead .col-sticky{background:var(--surface2);z-index:2;}
@@ -90,6 +91,10 @@
   .upload-btn.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
   .upload-btn.warn-state{background:var(--amber-light);border-color:#d4a017;color:var(--amber);}
   .upload-btn svg{width:11px;height:11px;flex-shrink:0;}
+  .warn-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;color:var(--amber);background:var(--amber-light);border:1px solid #d4a01766;border-radius:4px;padding:1px 6px;white-space:nowrap;font-family:'DM Sans',sans-serif;font-weight:500;}
+  .warn-bar{background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--amber);display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .warn-bar strong{font-weight:600;}
+  .name-missing input{border-color:#d4a017!important;background:#fffbf0!important;}
   .dl-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all 0.15s;flex-shrink:0;}
   .dl-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
 
@@ -289,8 +294,8 @@
   <div id="tab-nonpgo">
     <div class="config-bar">
       <div class="config-field"><label>Maximum bonus pool</label><input type="text" id="pool-nonpgo-display" value="$60,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('nonpgo')" onblur="blurPool('nonpgo')"><input type="hidden" id="pool-nonpgo" value="60000"></div>
-      <div class="config-field"><label>Period start</label><input type="month" id="pstart-nonpgo" value="2025-10" oninput="saveState();renderTable('nonpgo')"></div>
-      <div class="config-field"><label>Period end</label><input type="month" id="pend-nonpgo" value="2026-03" oninput="saveState();renderTable('nonpgo')"></div>
+      <div class="config-field"><label>Period start</label><input type="month" id="pstart-nonpgo" value="2025-10" oninput="saveState();renderTable('nonpgo');validatePeriod('nonpgo')"></div>
+      <div class="config-field"><label>Period end</label><input type="month" id="pend-nonpgo" value="2026-03" oninput="saveState();renderTable('nonpgo');validatePeriod('nonpgo')"></div>
       <div class="period-hint">Income statements will be parsed for this exact date range.</div>
     </div>
     <div class="formula-bar" id="fbar-nonpgo"><strong>Formula:</strong> loading...</div>
@@ -364,8 +369,8 @@
   <div id="tab-pgo" style="display:none">
     <div class="config-bar">
       <div class="config-field"><label>Maximum bonus pool</label><input type="text" id="pool-pgo-display" value="$30,000" style="font-family:'DM Mono',monospace" onfocus="focusPool('pgo')" onblur="blurPool('pgo')"><input type="hidden" id="pool-pgo" value="30000"></div>
-      <div class="config-field"><label>Period start</label><input type="month" id="pstart-pgo" value="2025-10" oninput="saveState();renderTable('pgo')"></div>
-      <div class="config-field"><label>Period end</label><input type="month" id="pend-pgo" value="2026-03" oninput="saveState();renderTable('pgo')"></div>
+      <div class="config-field"><label>Period start</label><input type="month" id="pstart-pgo" value="2025-10" oninput="saveState();renderTable('pgo');validatePeriod('pgo')"></div>
+      <div class="config-field"><label>Period end</label><input type="month" id="pend-pgo" value="2026-03" oninput="saveState();renderTable('pgo');validatePeriod('pgo')"></div>
       <div class="period-hint">Income statements will be parsed for this exact date range.</div>
     </div>
     <div class="formula-bar" id="fbar-pgo"><strong>Formula:</strong> loading...</div>
@@ -636,6 +641,19 @@ function activateEdit(el,type,id,field,placeholder){
   inp.onblur=()=>{saveState();renderTable(type);};
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key==='Tab')inp.blur();};
   el.replaceWith(inp); inp.focus(); inp.select();
+}
+
+function validatePeriod(type){
+  const ps=document.getElementById('pstart-'+type).value;
+  const pe=document.getElementById('pend-'+type).value;
+  const startEl=document.getElementById('pstart-'+type);
+  const endEl=document.getElementById('pend-'+type);
+  const bad=ps&&pe&&ps>=pe;
+  [startEl,endEl].forEach(el=>{
+    el.style.borderColor=bad?'#d4a017':'';
+    el.style.background=bad?'#fffbf0':'';
+    el.title=bad?'⚠ Period end is on or before period start':'';
+  });
 }
 
 function getPeriodMonths(type) {
@@ -1225,13 +1243,25 @@ function renderTable(type){
   const annFactor=getAnnFactor(type);
   const groupNames=state[type].groups.map(g=>g.name);
   const fb=document.getElementById('fbar-'+type);
-  if(fb)fb.innerHTML=`<strong>Formula:</strong> Applicable Bonus per property = Bonus Metric % × (${fmt(pool)} ÷ ${n} ${n===1?'property':'properties'}) = <strong>per-property rate: ${n>0?fmtD(rate,2):'—'}</strong>`;
+
+  // ── Formula bar + top-level warnings ───────────────────────────────────────
+  const ps=document.getElementById('pstart-'+type).value;
+  const pe=document.getElementById('pend-'+type).value;
+  const topWarns=[];
+  if(!ps||!pe) topWarns.push('⚠ Period dates not set — annualization defaults to 6 months and imports won\'t match columns');
+  else if(ps>=pe) topWarns.push('⚠ Period end is on or before period start — check your dates');
+  if(pool===0) topWarns.push('⚠ Bonus pool is $0 — all bonuses will show $0.00');
+  if(fb){
+    const formulaLine=`<strong>Formula:</strong> Applicable Bonus per property = Bonus Metric % × (${fmt(pool)} ÷ ${n} ${n===1?'property':'properties'}) = <strong>per-property rate: ${n>0?fmtD(rate,2):'—'}</strong>`;
+    const warnLines=topWarns.map(w=>`<div class="warn-bar" style="margin-bottom:0">${w}</div>`).join('');
+    fb.innerHTML=formulaLine+(topWarns.length?'<div style="margin-top:8px">'+warnLines+'</div>':'');
+  }
   const cm=document.getElementById('count-'+type);
   if(cm)cm.textContent=`${n} ${n===1?'property':'properties'} · rate: ${n>0?fmtD(rate,2):'—'}`;
   const rmBtn=document.getElementById('btn-remove-'+type);
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
-  if(n===0){body.innerHTML=`<tr><td colspan="21" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
+  if(n===0){body.innerHTML=`<tr><td colspan="22" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
   let totalBonus=0;
   const rows=state[type].rows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
@@ -1267,8 +1297,20 @@ function renderTable(type){
     const obDisplay = ob>0 ? fmtD(ob,2) : '<span style="color:var(--text3)">—</span>';
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
-    return`<tr>
-      <td class="col-sticky"><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
+    // ── Row-level warnings ─────────────────────────────────────────────────────
+    const rowWarns=[];
+    if(!row.name||row.name.trim()==='') rowWarns.push('Name is blank');
+    const hasCF=row.cf!==''&&row.cf!==undefined&&row.cf!==null;
+    const hasOcc=row.occ!==''&&row.occ!==undefined;
+    const hasNOI=row.currentNoi!==''&&row.currentNoi!==undefined;
+    if(!hasOcc&&!hasNOI&&!hasCF) rowWarns.push('No data entered on any trigger');
+    if(row.loc&&hasCF&&(row.capexCredit===''||row.capexCredit===undefined||row.capexCredit===null)) rowWarns.push('LOC property — CapEx credit not set');
+    if(!row.group&&hasCF&&(row.capital===''||row.capital===undefined||row.capital===null||parseFloat(row.capital)===0)) rowWarns.push('No unreturned capital — CF tier will always Miss');
+    const rowWarnHtml=rowWarns.length
+      ? `<tr><td class="col-sticky" style="padding:2px 8px 4px;border-bottom:none"></td><td colspan="21" style="padding:2px 8px 4px;border-bottom:1px solid var(--border)">${rowWarns.map(w=>`<span class="warn-pill">⚠ ${w}</span>`).join(' ')}</td></tr>`
+      : '';
+    return rowWarnHtml+`<tr>
+      <td class="col-sticky" ${!row.name||row.name.trim()===''?'style="background:#fffbf0"':''}><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)" style="${!row.name||row.name.trim()===''?'border-color:#d4a017;background:#fffbf0;':''}"></td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${hasMonthlyOcc
         ? `<div style="display:flex;align-items:center;gap:5px;padding:4px 7px">
@@ -1324,7 +1366,7 @@ function renderTable(type){
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
-  rows.push(`<tr class="total-row-tbl"><td colspan="18" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
+  rows.push(`<tr class="total-row-tbl"><td colspan="20" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
 }
@@ -1349,7 +1391,7 @@ function renderGroups(type){
       <input class="g-name-inp" value="${g.name}" oninput="setGroupName('${type}',${g.id},this.value)">
       <span style="font-size:12px;color:var(--text3)">Unreturned capital:</span>
       <input class="g-cap-inp" type="text" value="${g.capital!==''?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="$0" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const v=parseFloat(this.value.replace(/[^0-9.]/g,''))||0;setGroupCap('${type}',${g.id},v);this.value=v?'$'+v.toLocaleString('en-US'):'';">
-      <div class="group-result"><span style="color:var(--text3)">${fmt(totalCF)} CF · ${pct!==null?fmtP(pct)+' ann.':'—'}</span>${badge(cfTierFromPct(pct))}</div>
+      <div class="group-result"><span style="color:var(--text3)">${fmt(totalCF)} CF · ${pct!==null?fmtP(pct)+' ann.':'—'}</span>${badge(cfTierFromPct(pct))}${(isNaN(k)||k===0)?'<span class="warn-pill" style="margin-left:6px">⚠ no capital set</span>':''}</div>
       <button class="del-btn" onclick="removeGroup('${type}',${g.id})">×</button>
     </div><div class="group-props">Properties: ${propNames}</div></div>`;
   }).join('');
