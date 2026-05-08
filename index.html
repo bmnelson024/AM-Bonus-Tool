@@ -301,6 +301,7 @@
           <th style="min-width:68px">NOI tier</th>
           <th style="min-width:80px">NOI bonus</th>
           <th style="min-width:115px">Cash flow ($)</th>
+          <th style="min-width:115px">Adjustments ($)</th>
           <th style="min-width:115px">Adj cash flow ($)</th>
           <th style="min-width:68px">CF tier</th>
           <th style="min-width:80px">CF bonus</th>
@@ -375,6 +376,7 @@
           <th style="min-width:68px">NOI tier</th>
           <th style="min-width:80px">NOI bonus</th>
           <th style="min-width:115px">Cash flow ($)</th>
+          <th style="min-width:115px">Adjustments ($)</th>
           <th style="min-width:115px">Adj cash flow ($)</th>
           <th style="min-width:68px">CF tier</th>
           <th style="min-width:80px">CF bonus</th>
@@ -500,7 +502,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
   });
 }
 
@@ -531,7 +533,13 @@ function annPct(cf,cap,factor){const c=parseFloat(cf),k=parseFloat(cap);if(isNaN
 function wOcc(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
 function wNOI(t){return wOcc(t);} // same tier weights as occ
 function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
-function getEffectiveCF(r){return r.adjCf!==''&&r.adjCf!==undefined&&r.adjCf!==null?r.adjCf:r.cf;}
+function getEffectiveCF(r){
+  const cf = r.cf!==''&&r.cf!==undefined&&r.cf!==null ? parseFloat(r.cf) : null;
+  if(cf===null||isNaN(cf)) return r.cf;
+  const adj = r.adjustments!==''&&r.adjustments!==undefined&&r.adjustments!==null ? parseFloat(r.adjustments) : null;
+  if(adj===null||isNaN(adj)) return cf;
+  return cf - adj;
+}
 function buildCFMap(type){
   const map={};
   const annFactor=getAnnFactor(type);
@@ -1083,7 +1091,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
 function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1125,16 +1133,21 @@ function renderTable(type){
     const priorDisplay = priorVal!=='' ? fmtAcct(priorVal) : '';
     const noiDisplay = row.currentNoi!=='' ? fmtAcct(row.currentNoi) : '';
     const cfDisplay = row.cf!=='' ? fmtAcct(row.cf) : '';
-    const adjCfVal = row.adjCf!==''&&row.adjCf!==undefined ? row.adjCf : ''; // kept for display formatting
-    const adjCfDisplay = adjCfVal!=='' ? fmtAcct(adjCfVal) : '';
+    const adjsVal = row.adjustments!==''&&row.adjustments!==undefined ? row.adjustments : '';
+    const adjsDisplay = adjsVal!=='' ? fmtAcct(adjsVal) : '';
+    const adjsNum = parseFloat(adjsVal);
+    const adjsClass = !isNaN(adjsNum) ? (adjsNum < 0 ? 'cf-positive' : adjsNum > 0 ? 'cf-negative' : '') : '';
+    // Adj CF is computed: cf - adjustments
+    const cfNum = parseFloat(row.cf);
+    const adjCfComputed = !isNaN(cfNum) ? (!isNaN(adjsNum) ? cfNum - adjsNum : cfNum) : null;
+    const adjCfDisplay = adjCfComputed!==null ? fmtAcct(adjCfComputed) : '';
+    const adjCfClass = adjCfComputed!==null ? (adjCfComputed>0?'cf-positive':adjCfComputed<0?'cf-negative':'') : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
     const cfClass = parseFloat(row.cf)<0 ? ' negative' : '';
     const priorN = parseFloat(priorVal), currentN = parseFloat(row.currentNoi);
     const noiClass = (!isNaN(priorN)&&!isNaN(currentN))
       ? (currentN > priorN ? 'noi-up' : currentN < priorN ? 'noi-down' : '')
       : (parseFloat(row.currentNoi)<0 ? 'negative' : '');
-    const adjCfNum = parseFloat(adjCfVal);
-    const adjCfClass = !isNaN(adjCfNum) ? (adjCfNum > 0 ? 'cf-positive' : adjCfNum < 0 ? 'cf-negative' : '') : '';
     const obDisplay = ob>0 ? fmtD(ob,2) : '<span style="color:var(--text3)">—</span>';
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
@@ -1155,7 +1168,8 @@ function renderTable(type){
       <td>${badge(nt)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
-      <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',adjCfVal,type,row.id,'adjCf','manual override')}</td>
+      <td>${editCell('<span class="'+adjsClass+'">'+(adjsDisplay||'')+'</span>',adjsVal,type,row.id,'adjustments','0')}</td>
+      <td><div class="fmt-cell" style="cursor:default">${adjCfDisplay ? '<span class="'+adjCfClass+'">'+adjCfDisplay+'</span>' : '<span class="fmt-placeholder">—</span>'}</div></td>
       <td>${badge(ct)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
@@ -1605,7 +1619,7 @@ function rollToNextPeriod(){
   const newStart = `${newSY}-${String(newSM).padStart(2,'0')}`;
   const newEnd   = `${newEY}-${String(newEM).padStart(2,'0')}`;
 
-  const msg = `This will:\n\n• Set period to ${newStart} → ${newEnd}\n• Promote current NOI → Prior NOI for all properties\n• Clear current NOI, Cash Flow, Adj Cash Flow, and Ec Occ\n• Keep all properties, groups, unreturned capital, LOC flags, and platforms\n\nA backup file will be downloaded first.\n\nContinue?`;
+  const msg = `This will:\n\n• Set period to ${newStart} → ${newEnd}\n• Promote current NOI → Prior NOI for all properties\n• Clear current NOI, Cash Flow, Adjustments, and Ec Occ\n• Keep all properties, groups, unreturned capital, LOC flags, and platforms\n\nA backup file will be downloaded first.\n\nContinue?`;
 
   if (!confirm(msg)) return;
 
@@ -1616,7 +1630,7 @@ function rollToNextPeriod(){
       r.priorNoi    = r.currentNoi !== '' ? r.currentNoi : r.priorNoi;
       r.currentNoi  = '';
       r.cf          = '';
-      r.adjCf       = '';
+      r.adjustments = '';
       r.occ         = '';
       r.occMonths   = [];
       r.imported      = false;
