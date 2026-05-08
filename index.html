@@ -265,6 +265,9 @@
         <label>Cash flow — Net Income (raw)</label>
         <div class="modal-val" id="modal-cf">—</div>
       </div>
+      <div id="modal-mismatch-wrap" style="display:none">
+        <div class="modal-warn" id="modal-mismatch" style="display:flex;gap:8px;align-items:flex-start"></div>
+      </div>
       <div id="modal-warn-wrap" style="display:none">
         <div class="modal-warn" id="modal-warn"></div>
       </div>
@@ -1191,6 +1194,17 @@ function parseStatement(file, type, rid){
   reader.readAsArrayBuffer(file);
 }
 
+// Returns true if two property name strings are similar enough to not warn.
+// Normalises to lowercase words, then checks Jaccard word-set overlap >= 0.35.
+function namesSimilar(a, b){
+  if(!a||!b) return true; // nothing to compare
+  const words = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean);
+  const wa = new Set(words(a)), wb = new Set(words(b));
+  const intersection = [...wa].filter(w=>wb.has(w)).length;
+  const union = new Set([...wa,...wb]).size;
+  return union===0 || (intersection/union) >= 0.35;
+}
+
 function showModal(){
   const {noi,cf,propName,platform,periodLabel,capexLines,capexTotal,type,rowId}=pendingImport;
   document.getElementById('modal-platform').textContent=platform ? `Detected platform: ${platform}` : '';
@@ -1202,6 +1216,19 @@ function showModal(){
   noiEl.className='modal-val'+(noi===null?' na':'');
   cfEl.textContent=cf!==null?fmtD(cf,2):'Not found in file';
   cfEl.className='modal-val'+(cf===null?' na':'');
+
+  // ── Name mismatch warning ──────────────────────────────────────────────────
+  const mismatchWrap=document.getElementById('modal-mismatch-wrap');
+  const mismatchEl=document.getElementById('modal-mismatch');
+  const rowForName = state[type] && state[type].rows.find(r=>r.id===rowId);
+  const rowName = rowForName ? rowForName.name : '';
+  if(propName && rowName && !namesSimilar(rowName, propName)){
+    mismatchEl.innerHTML=`<span style="font-size:15px;flex-shrink:0">⚠</span><span><strong style="font-weight:600">Name mismatch</strong> — the row is named <em>"${esc(rowName)}"</em> but the file says <em>"${esc(propName)}"</em>. Make sure you've selected the right file before applying.</span>`;
+    mismatchWrap.style.display='';
+  } else {
+    mismatchWrap.style.display='none';
+  }
+
   const warnWrap=document.getElementById('modal-warn-wrap');
   const warn=document.getElementById('modal-warn');
   const msgs=[];
