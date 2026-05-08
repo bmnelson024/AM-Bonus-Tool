@@ -1101,7 +1101,8 @@ function parseStatement(file, type, rid){
         ? `${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`
         : 'Full period (no date filter)';
 
-      // CapEx keyword list — order matters (more specific first)
+      // CapEx section header keywords — when a row matches but has NO values,
+      // treat it as a section header and collect all child rows until the next total.
       const CAPEX_KEYWORDS = [
         'capital expenditure','capital expenditures',
         'capital improvement','capital improvements',
@@ -1114,8 +1115,8 @@ function parseStatement(file, type, rid){
         'property improvement','property improvements',
         'major repair','major repairs',
       ];
-      function isCapexLabel(lbl){
-        if(lbl.startsWith('total')) return false; // skip subtotal/total rows to avoid double-counting
+      function isCapexKeyword(lbl){
+        if(lbl.startsWith('total')) return false;
         return CAPEX_KEYWORDS.some(kw=>lbl===kw||lbl.includes(kw));
       }
       function sumRow(row){
@@ -1125,8 +1126,13 @@ function parseStatement(file, type, rid){
         for(let c=row.length-1;c>=0;c--){const v=parseFloat(String(row[c]).replace(/,/g,''));if(!isNaN(v))return v;}
         return null;
       }
+      function rowHasValues(row){
+        const cols=targetCols.length>0?targetCols:[...Array(row.length).keys()];
+        return cols.some(ci=>{const v=parseFloat(String(row[ci]).replace(/,/g,''));return !isNaN(v)&&v!==0;});
+      }
 
       const capexLines=[];
+      let inCapexSection=false;
       for(let i=headerRowIdx+1;i<data.length;i++){
         const row=data[i];
         const label=String(row[0]||'').trim().toLowerCase();
@@ -1146,8 +1152,26 @@ function parseStatement(file, type, rid){
           if(isNI  && cf===null)  cf=val;
         }
 
-        // CapEx detection — collect all matches (don't break early)
-        if(!isNOI && !isNI && isCapexLabel(label)){
+        // CapEx section header: keyword match with no values → enter collect mode
+        if(isCapexKeyword(label) && !rowHasValues(row)){
+          inCapexSection=true;
+          continue;
+        }
+        // End of CapEx section: hit a "Total for ..." row
+        if(inCapexSection && label.startsWith('total')){
+          inCapexSection=false;
+          continue;
+        }
+        // Inside CapEx section: collect line items
+        if(inCapexSection && !label.startsWith('total')){
+          const val=sumRow(row);
+          if(val!==null && val!==0){
+            capexLines.push({label:String(row[0]||'').trim(), amount:val});
+          }
+          continue;
+        }
+        // Fallback: individual rows that match CapEx keywords AND have values
+        if(!inCapexSection && isCapexKeyword(label) && rowHasValues(row)){
           const val=sumRow(row);
           if(val!==null && val!==0){
             capexLines.push({label:String(row[0]||'').trim(), amount:val});
