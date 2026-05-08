@@ -189,7 +189,7 @@
 
 
 <!-- Ec Occ Import Modal -->
-<div class="modal-overlay" id="occ-import-modal" style="display:none">
+<div class="modal-overlay" id="occ-import-modal" style="display:none" onclick="if(event.target===this)closeOccModal()">
   <div class="modal" style="width:780px;max-width:100%">
     <h3>Import economic occupancy</h3>
     <div class="modal-sub" id="occ-modal-sub">Review matches before applying.</div>
@@ -244,7 +244,7 @@
 </div>
 
 <!-- Modal -->
-<div class="modal-overlay" id="import-modal" style="display:none">
+<div class="modal-overlay" id="import-modal" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h3>Import income statement</h3>
     <div class="modal-sub" id="modal-platform"></div>
@@ -553,7 +553,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
   });
 }
 
@@ -568,7 +568,7 @@ function noiTier(prior,current){
   if(current===''||current==null)return'miss';
   const c=parseFloat(current);
   if(isNaN(c))return'miss';
-  if(p===0)return'miss';
+  if(p===0)return'na';
   const pct=(c-p)/Math.abs(p)*100;
   return pct>=10?'3':pct>=6?'2':pct>=2?'1':'miss';
 }
@@ -640,9 +640,9 @@ function fmtOcc(v){
   return n.toFixed(2)+'%';
 }
 function editCell(displayHtml, rawVal, type, id, field, placeholder){
-  const esc = String(rawVal).replace(/"/g,'&quot;');
+  const escapedRaw = String(rawVal).replace(/"/g,'&quot;');
   const inner = displayHtml || '<span class="fmt-placeholder">'+placeholder+'</span>';
-  return '<div class="fmt-cell" onclick="activateEdit(this,\''+type+'\','+id+',\''+field+'\',\''+placeholder+'\''+')" data-raw="'+esc+'" title="Click to edit">'+inner+'</div>';
+  return '<div class="fmt-cell" onclick="activateEdit(this,\''+type+'\','+id+',\''+field+'\',\''+placeholder+'\''+')" data-raw="'+escapedRaw+'" title="Click to edit">'+inner+'</div>';
 }
 function activateEdit(el,type,id,field,placeholder){
   const raw=el.getAttribute('data-raw');
@@ -778,7 +778,7 @@ function parseOccFile(file){
 
       // Strategy 3: fall back to columns B–G positionally (indices 1–6)
       if(Object.keys(monthColMap).length === 0){
-        periodMonths.forEach((pm, pi)=>{ if(pi < 6) monthColMap[pi] = pi + 1; });
+        periodMonths.forEach((pm, pi)=>{ monthColMap[pi] = pi + 1; });
       }
 
       const matchedMonths = Object.keys(monthColMap).length;
@@ -902,8 +902,9 @@ async function applyOccImport(){
 function showOccDetail(rowId, type){
   const r = state[type].rows.find(r=>r.id===rowId);
   if(!r||!r.occMonths||!r.occMonths.length) return;
-  const months = getPeriodMonths('nonpgo') || [];
+  const months = getPeriodMonths(type) || [];
   document.getElementById('occ-detail-title').textContent = (r.name||'Property') + ' — Monthly Ec Occ';
+  document.getElementById('occ-detail-modal').querySelector('.modal-sub').textContent = `${months.length}-month breakdown used to compute the average`;
   const nonNull = r.occMonths.filter(v=>v!==null);
   const avg = nonNull.length>0 ? nonNull.reduce((s,v)=>s+v,0)/nonNull.length : null;
   const rows = r.occMonths.map((v, i)=>{
@@ -917,7 +918,7 @@ function showOccDetail(rowId, type){
   const avgColor = avg===null?'var(--text3)':avg>=94?'#15803d':avg>=89?'var(--amber)':'var(--red)';
   document.getElementById('occ-detail-content').innerHTML = rows +
     `<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:13px;font-weight:600">
-      <span>6-Month Average</span>
+      <span>${months.length}-Month Average</span>
       <span style="font-family:'DM Mono',monospace;color:${avgColor}">${avg!==null?avg.toFixed(2)+'%':'—'}</span>
     </div>`;
   document.getElementById('occ-detail-modal').style.display = 'flex';
@@ -1080,7 +1081,7 @@ function parseStatement(file, type, rid){
           propName=parts[0].trim();
         }
 
-        if(!headerRow && row.some(c=>String(c).match(/^\d{2}-\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/))){
+        if(!headerRow && row.some(c=>String(c).match(/^\d{1,2}[-\/]\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s-]\d{2,4}$/))){
           headerRow=row;
           headerRowIdx=i;
         }
@@ -1157,10 +1158,11 @@ function parseStatement(file, type, rid){
           inCapexSection=true;
           continue;
         }
-        // End of CapEx section: hit a "Total for ..." row
-        if(inCapexSection && label.startsWith('total')){
+        // End of CapEx section: hit a "Total for ..." row, or a new non-CapEx section header with no values
+        if(inCapexSection && (label.startsWith('total') || (!rowHasValues(row) && label!=='' && !isCapexKeyword(label)))){
           inCapexSection=false;
-          continue;
+          if(label.startsWith('total')) continue;
+          // fall through so this new section header is evaluated normally
         }
         // Inside CapEx section: collect line items
         if(inCapexSection && !label.startsWith('total')){
@@ -1285,14 +1287,15 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
 function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
 function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
-function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g)state[type].rows.forEach(r=>{if(r.group===g.name)r.group='';});state[type].groups=state[type].groups.filter(g=>g.id!==id);saveState();renderGroups(type);renderTable(type);}
+function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g){['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===g.name)r.group='';}));}state[type].groups=state[type].groups.filter(g=>g.id!==id);saveState();renderGroups('nonpgo');renderGroups('pgo');renderTable('nonpgo');renderTable('pgo');}
 function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';state[type].rows.forEach(r=>{if(r.group===old)r.group=val;});if(g)g.name=val;saveState();renderGroups(type);renderTable(type);}
 function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;saveState();renderGroups(type);renderTable(type);}}
+function setLOC(type,id,checked){const r=state[type].rows.find(r=>r.id===id);if(!r)return;r.loc=checked;if(!checked)r.capexCredit='';saveState();renderTable(type);}
 
 // ─── render table ─────────────────────────────────────────────────────────────
 function renderTable(type){
@@ -1365,16 +1368,17 @@ function renderTable(type){
     if(!hasOcc&&!hasNOI&&!hasCF) rowWarns.push('No data entered on any trigger');
     if(row.loc&&hasCF&&(row.capexCredit===''||row.capexCredit===undefined||row.capexCredit===null)) rowWarns.push('LOC property — CapEx credit not set');
     if(!row.group&&hasCF&&(row.capital===''||row.capital===undefined||row.capital===null||parseFloat(row.capital)===0)) rowWarns.push('No unreturned capital — CF tier will always Miss');
+    if(row.group && !groupNames.includes(row.group)) rowWarns.push(`Syndication group "${row.group}" no longer exists — please re-assign`);
     const warnIcon=rowWarns.length
       ? `<span onclick="showRowWarnings('${type}',${row.id})" style="color:var(--amber);font-size:13px;cursor:pointer;flex-shrink:0;user-select:none" aria-label="Warnings">⚠</span>`
       : '';
     return`<tr>
       <td class="col-sticky" style="${!row.name||row.name.trim()===''?'background:#fffbf0;':''}">
         <div style="display:flex;align-items:center;gap:5px">
-          ${warnIcon}<input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)" style="flex:1;${!row.name||row.name.trim()===''?'border-color:#d4a017;background:#fffbf0;':''}">
+          ${warnIcon}<input value="${esc(row.name)}" onchange="setRow('${type}',${row.id},'name',this.value)" style="flex:1;${!row.name||row.name.trim()===''?'border-color:#d4a017;background:#fffbf0;':''}">
         </div>
       </td>
-      <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
+      <td><input type="number" value="${row.units}" onchange="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${hasMonthlyOcc
         ? `<div style="display:flex;align-items:center;gap:5px;padding:4px 7px">
              <span style="font-family:'DM Mono',monospace;font-size:12.5px;${parseFloat(row.occ)>=94?'color:#15803d':parseFloat(row.occ)>=89?'color:var(--amber)':'color:var(--red)'}">${occDisplay||'—'}</span>
@@ -1402,7 +1406,7 @@ function renderTable(type){
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
       <td>${capCell}</td>
-      <td><label class="loc-check"><input type="checkbox" ${row.loc?'checked':''} onchange="setRow('${type}',${row.id},'loc',this.checked)"> LOC</label></td>
+      <td><label class="loc-check"><input type="checkbox" ${row.loc?'checked':''} onchange="setLOC('${type}',${row.id},this.checked)"> LOC</label></td>
       <td><select onchange="setRow('${type}',${row.id},'platform',this.value)" style="font-size:11px;color:var(--text2);">
         <option value="appfolio" ${row.platform==='appfolio'?'selected':''}>Appfolio</option>
         <option value="buildium" ${row.platform==='buildium'?'selected':''}>Buildium</option>
@@ -1429,7 +1433,7 @@ function renderTable(type){
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
-  rows.push(`<tr class="total-row-tbl"><td colspan="20" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td><td></td></tr>`);
+  rows.push(`<tr class="total-row-tbl"><td colspan="19" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
 }
@@ -1690,7 +1694,8 @@ function loadStateLocalFallback(){
 }
 
 function resetToDefaults(){
-  if (!confirm('Reset all data to defaults? This will clear all entered values and cannot be undone.')) return;
+  if (!confirm('Reset all data to defaults? A backup JSON will be downloaded first, then all entered values will be cleared.')) return;
+  exportSave(); // download backup before wiping
   clearTimeout(saveTimer); // cancel any pending debounced save before overwriting
   localStorage.removeItem(STORAGE_KEY);
   state.nonpgo = {rows:[],groups:[]};
@@ -1896,6 +1901,7 @@ loadFromSupabase().then(ok => {
     renderTable('pgo');
     renderGroups('nonpgo');
     renderGroups('pgo');
+    renderSyndicates();
   }
 });
 </script>
