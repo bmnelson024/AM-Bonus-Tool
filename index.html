@@ -1062,6 +1062,7 @@ function parseStatement(file, type, rid){
         'major repair','major repairs',
       ];
       function isCapexLabel(lbl){
+        if(lbl.startsWith('total')) return false; // skip subtotal/total rows to avoid double-counting
         return CAPEX_KEYWORDS.some(kw=>lbl===kw||lbl.includes(kw));
       }
       function sumRow(row){
