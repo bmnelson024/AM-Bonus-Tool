@@ -1283,12 +1283,14 @@ function renderTable(type){
       <td>${badge(nt)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
-      <td>${editCell('<span class="'+adjsClass+'">'+(adjsDisplay||'')+'</span>',adjsVal,type,row.id,'adjustments','0')}</td>
-      <td><div class="fmt-cell" style="cursor:default;flex-direction:column;align-items:flex-start;gap:2px">
-        ${adjCfDisplay ? '<span class="'+adjCfClass+'">'+adjCfDisplay+'</span>' : '<span class="fmt-placeholder">—</span>'}
+      <td><div style="display:flex;flex-direction:column;gap:2px;padding:2px 0">
+        ${editCell('<span class="'+adjsClass+'">'+(adjsDisplay||'')+'</span>',adjsVal,type,row.id,'adjustments','0')}
         ${row.capexCredit!==''&&row.capexCredit!==undefined&&parseFloat(row.capexCredit)>0
-          ? `<span style="font-size:10px;color:#15803d;font-family:'DM Sans',sans-serif">+${fmtD(parseFloat(row.capexCredit),2)} capex credit</span>`
+          ? `<span style="font-size:10px;color:#15803d;font-family:'DM Sans',sans-serif;padding:0 7px">+${fmtD(parseFloat(row.capexCredit),2)} capex credit</span>`
           : ''}
+      </div></td>
+      <td><div class="fmt-cell" style="cursor:default">
+        ${adjCfDisplay ? '<span class="'+adjCfClass+'">'+adjCfDisplay+'</span>' : '<span class="fmt-placeholder">—</span>'}
       </div></td>
       <td>${badge(ct)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
