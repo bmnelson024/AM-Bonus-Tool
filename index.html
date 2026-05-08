@@ -170,6 +170,8 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="gh-status">Connecting…</span>
     <button class="btn-nav" onclick="exportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬇ Export backup</button>
+    <button class="btn-nav" onclick="downloadOccTemplate()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;" title="Download a pre-filled Excel template for economic occupancy entry">⬇ Ec Occ template</button>
+    <button class="btn-nav" onclick="triggerOccUpload()" style="background:rgba(255,255,255,0.15);font-weight:500;font-size:12px;" title="Upload completed economic occupancy spreadsheet (all properties)">⬆ Upload Ec Occ</button>
     <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
     <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
     <button class="btn-nav" onclick="switchTab('results')">View results →</button>
@@ -178,43 +180,32 @@
 
 
 
-<!-- CF Import Modal -->
-<div class="modal-overlay" id="cf-import-modal" style="display:none">
-  <div class="modal">
-    <h3>Import cash flow statement</h3>
-    <div class="modal-sub" id="cf-modal-platform"></div>
-    <div class="modal-fields">
-      <div class="modal-field">
-        <label>Property detected</label>
-        <div class="modal-val prop" id="cf-modal-prop">—</div>
-      </div>
-      <div class="modal-field">
-        <label>Period used</label>
-        <div class="modal-val period-info" id="cf-modal-period">—</div>
-      </div>
-      <div class="modal-field">
-        <label>NOI — Net Operating Income</label>
-        <div class="modal-val" id="cf-modal-noi">—</div>
-      </div>
-      <div class="modal-field">
-        <label>Raw cash flow</label>
-        <div class="modal-val" id="cf-modal-raw">—</div>
-      </div>
-      <div class="modal-field">
-        <label>Adjustments applied</label>
-        <div id="cf-modal-adjustments" style="font-size:12px;font-family:'DM Mono',monospace;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;line-height:1.8;"></div>
-      </div>
-      <div class="modal-field">
-        <label>Adjusted cash flow</label>
-        <div class="modal-val" id="cf-modal-adj">—</div>
-      </div>
-      <div id="cf-modal-warn-wrap" style="display:none">
-        <div class="modal-warn" id="cf-modal-warn"></div>
-      </div>
+<!-- Ec Occ Import Modal -->
+<div class="modal-overlay" id="occ-import-modal" style="display:none">
+  <div class="modal" style="width:780px;max-width:100%">
+    <h3>Import economic occupancy</h3>
+    <div class="modal-sub" id="occ-modal-sub">Review matches before applying.</div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+      <table id="occ-preview-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead id="occ-preview-head"></thead>
+        <tbody id="occ-preview-body"></tbody>
+      </table>
     </div>
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeCFModal()">Cancel</button>
-      <button class="btn-apply" id="cf-modal-apply-btn" onclick="applyCFImport()">Apply to property</button>
+      <button class="btn-cancel" onclick="closeOccModal()">Cancel</button>
+      <button class="btn-apply" id="occ-modal-apply-btn" onclick="applyOccImport()">Apply to all matched</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ec Occ Monthly Detail Modal -->
+<div class="modal-overlay" id="occ-detail-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="width:420px">
+    <h3 id="occ-detail-title">Monthly Occupancy</h3>
+    <div class="modal-sub">Six-month breakdown used to compute the average</div>
+    <div id="occ-detail-content" style="margin:16px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn-apply" onclick="document.getElementById('occ-detail-modal').style.display='none'">Close</button>
     </div>
   </div>
 </div>
@@ -318,7 +309,6 @@
           <th style="min-width:75px">Line of credit</th>
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
-          <th style="min-width:110px">Import cash flow</th>
           <th style="min-width:85px">Total bonus</th>
           <th style="min-width:160px">Notes</th>
           <th></th>
@@ -393,7 +383,6 @@
           <th style="min-width:75px">Line of credit</th>
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
-          <th style="min-width:110px">Import cash flow</th>
           <th style="min-width:85px">Total bonus</th>
           <th style="min-width:160px">Notes</th>
           <th></th>
@@ -487,7 +476,7 @@ const SEED = {
       {name:'The Vincent',                 units:48,  priorNoi:125138.91, group:'Sarpy Douglas',             capital:'', platform:'buildium'},
       {name:'Venice (4916 California)',    units:11,  priorNoi:12599.88,  group:'MWP 4',                     capital:'', platform:'buildium'},
       {name:'Villa Blanca',                units:25,  priorNoi:55385.40,  group:'MWP 4',                     capital:'', platform:'buildium'},
-      {name:'102 N 38th Ave',              units:5,   priorNoi:5190.16,   group:'Fast Ave Properties LLC',   capital:'', platform:'buildium'},
+      {name:'102 N. 38th Ave',              units:5,   priorNoi:5190.16,   group:'Fast Ave Properties LLC',   capital:'', platform:'buildium'},
       {name:'2206 K Street',               units:23,  priorNoi:'',        group:'Colonial SOMA',             capital:'', platform:'buildium'},
       {name:'504-604 Cordes Dr',           units:24,  priorNoi:101039.47, group:'Cordes Partners LLC',       capital:'', platform:'buildium'},
       {name:'60th Street Duplexes',        units:10,  priorNoi:38064.23,  group:'Red Park 2 LLC',            capital:'', platform:'buildium'},
@@ -511,7 +500,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',cfImported:false,imported:false,notes:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjCf:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
   });
 }
 
@@ -643,6 +632,223 @@ function monthMatchesHeader(header, year, month) {
   return false;
 }
 
+// ─── Economic Occupancy upload ────────────────────────────────────────────────
+
+function downloadOccTemplate(){
+  const months = getPeriodMonths('nonpgo') || [];
+  if(!months.length){ alert('Please set a period start and end date first.'); return; }
+  // Use "Month 1–6" headers (positional) plus an Average formula column
+  const monthLabels = months.map((m, i)=>`Month ${i+1}`);
+  const headers = ['Property Name', ...monthLabels, 'Average'];
+  const rows = [headers];
+  let dataRowIdx = 2; // Excel rows are 1-based; row 1 = headers
+  ['nonpgo','pgo'].forEach(type=>{
+    state[type].rows.forEach(r=>{
+      const lastMonthCol = String.fromCharCode(65 + months.length); // e.g. G for 6 months
+      rows.push([r.name||'', ...months.map(()=>''), `=SUM(B${dataRowIdx}:${lastMonthCol}${dataRowIdx})/${months.length}`]);
+      dataRowIdx++;
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:35},...months.map(()=>({wch:12})),{wch:12}];
+  // Light styling hint via cell comment — instructions row
+  XLSX.utils.book_append_sheet(wb, ws, 'Ec Occ');
+  const ps = document.getElementById('pstart-nonpgo').value||'unknown';
+  const pe = document.getElementById('pend-nonpgo').value||'unknown';
+  XLSX.writeFile(wb, `EcOcc_Template_${ps}_to_${pe}.xlsx`);
+}
+
+function triggerOccUpload(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.xlsx,.xls,.csv';
+  inp.style.display='none';
+  inp.onchange = e=>{ parseOccFile(e.target.files[0]); document.body.removeChild(inp); };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+let pendingOccImport = null;
+
+function parseOccFile(file){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if(data.length < 2){ alert('File appears empty.'); return; }
+
+      const headerRow = data[0].map(h=>String(h).trim());
+      const periodMonths = getPeriodMonths('nonpgo') || [];
+
+      // Map each period month to its column index in the file.
+      // Strategy 1: date-named headers ("Oct 2025", "11-2025", etc.)
+      const monthColMap = {}; // periodMonth index -> col index
+      headerRow.forEach((h, ci)=>{
+        periodMonths.forEach((pm, pi)=>{
+          if(monthMatchesHeader(h, pm.year, pm.month)) monthColMap[pi] = ci;
+        });
+      });
+
+      // Strategy 2: positional "Month 1" … "Month 6" headers
+      if(Object.keys(monthColMap).length === 0){
+        headerRow.forEach((h, ci)=>{
+          const m = String(h).trim().match(/^month\s*(\d+)$/i);
+          if(m){
+            const idx = parseInt(m[1]) - 1; // convert to 0-based
+            if(idx >= 0 && idx < periodMonths.length) monthColMap[idx] = ci;
+          }
+        });
+      }
+
+      // Strategy 3: fall back to columns B–G positionally (indices 1–6)
+      if(Object.keys(monthColMap).length === 0){
+        periodMonths.forEach((pm, pi)=>{ if(pi < 6) monthColMap[pi] = pi + 1; });
+      }
+
+      const matchedMonths = Object.keys(monthColMap).length;
+
+      // Build a lookup: lowercase property name -> {type, row}
+      const propLookup = {};
+      ['nonpgo','pgo'].forEach(type=>{
+        state[type].rows.forEach(r=>{
+          const key = (r.name||'').trim().toLowerCase();
+          if(key) propLookup[key] = {type, row:r};
+        });
+      });
+
+      // Parse each data row
+      const results = [];
+      for(let i=1; i<data.length; i++){
+        const row = data[i];
+        const propName = String(row[0]||'').trim();
+        if(!propName) continue;
+
+        const monthVals = periodMonths.map((pm, pi)=>{
+          const ci = monthColMap[pi];
+          if(ci===undefined) return null;
+          const raw = String(row[ci]||'').replace(/[%,\s]/g,'');
+          const v = parseFloat(raw);
+          return isNaN(v) ? null : v;
+        });
+
+        const nonNull = monthVals.filter(v=>v!==null);
+        const avg = nonNull.length>0 ? nonNull.reduce((s,v)=>s+v,0)/nonNull.length : null;
+        const match = propLookup[propName.toLowerCase()];
+
+        results.push({ propName, monthVals, avg, match, found:!!match });
+      }
+
+      pendingOccImport = { results, periodMonths, matchedMonths, file };
+      showOccModal();
+    } catch(err){
+      alert('Could not read the file.\n\n'+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showOccModal(){
+  const {results, periodMonths, matchedMonths} = pendingOccImport;
+  const matched  = results.filter(r=>r.found && r.avg!==null).length;
+  const unmatched = results.filter(r=>!r.found).length;
+  const noData   = results.filter(r=>r.found && r.avg===null).length;
+  document.getElementById('occ-modal-sub').innerHTML =
+    `<span style="color:var(--accent)">✓ ${matched} matched</span>&nbsp;&nbsp;` +
+    (unmatched ? `<span style="color:var(--red)">✗ ${unmatched} not found in tool</span>&nbsp;&nbsp;` : '') +
+    (noData    ? `<span style="color:var(--amber)">⚠ ${noData} matched but no data</span>&nbsp;&nbsp;` : '') +
+    (matchedMonths < periodMonths.length ? `<span style="color:var(--amber)">⚠ Only ${matchedMonths}/${periodMonths.length} period months found in file headers</span>` : '');
+
+  // Build header row
+  const thStyle = 'padding:7px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;text-align:center;white-space:nowrap;';
+  const headCells = ['Property', ...periodMonths.map(m=>`${MONTH_NAMES[m.month-1]}<br>${m.year}`), 'Average', 'Status']
+    .map(h=>`<th style="${thStyle}">${h}</th>`).join('');
+  document.getElementById('occ-preview-head').innerHTML = `<tr>${headCells}</tr>`;
+
+  // Build data rows
+  const tdBase = 'padding:6px 10px;border:1px solid var(--border);text-align:center;font-family:\'DM Mono\',monospace;font-size:12px;';
+  const rows = results.map(r=>{
+    const nameTd = `<td style="padding:6px 10px;border:1px solid var(--border);text-align:left;font-size:12px;font-weight:500;white-space:nowrap">${esc(r.propName)}</td>`;
+    const monthTds = r.monthVals.map(v=>
+      `<td style="${tdBase}color:${v===null?'var(--text3)':'var(--text)'}">${v!==null?v.toFixed(2)+'%':'—'}</td>`
+    ).join('');
+    const avgColor = r.avg===null?'var(--text3)':r.avg>=94?'#15803d':r.avg>=89?'var(--amber)':'var(--red)';
+    const avgTd = `<td style="${tdBase}font-weight:600;color:${avgColor}">${r.avg!==null?r.avg.toFixed(2)+'%':'—'}</td>`;
+    const status = r.found && r.avg!==null
+      ? `<span style="color:#15803d;font-weight:500">✓ Will apply</span>`
+      : !r.found
+        ? `<span style="color:var(--red)">✗ Not found</span>`
+        : `<span style="color:var(--amber)">⚠ No data</span>`;
+    const statusTd = `<td style="padding:6px 10px;border:1px solid var(--border);text-align:center;font-size:11px">${status}</td>`;
+    const rowBg = !r.found ? 'background:#fff8f8' : r.avg===null ? 'background:#fffdf0' : '';
+    return `<tr style="${rowBg}">${nameTd}${monthTds}${avgTd}${statusTd}</tr>`;
+  }).join('');
+  document.getElementById('occ-preview-body').innerHTML = rows || '<tr><td colspan="20" style="padding:16px;text-align:center;color:var(--text3)">No data rows found</td></tr>';
+  document.getElementById('occ-modal-apply-btn').disabled = matched === 0;
+  document.getElementById('occ-import-modal').style.display = 'flex';
+}
+
+function closeOccModal(){
+  document.getElementById('occ-import-modal').style.display = 'none';
+  pendingOccImport = null;
+}
+
+async function applyOccImport(){
+  if(!pendingOccImport) return;
+  const {results, file} = pendingOccImport;
+  let applied = 0;
+  results.forEach(r=>{
+    if(r.found && r.avg!==null){
+      r.match.row.occMonths = r.monthVals;
+      r.match.row.occ = r.avg;
+      applied++;
+    }
+  });
+  closeOccModal();
+  saveState();
+  renderTable('nonpgo');
+  renderTable('pgo');
+  // Upload file to Supabase
+  if(file){
+    const ps = document.getElementById('pstart-nonpgo').value||'unknown';
+    const pe = document.getElementById('pend-nonpgo').value||'unknown';
+    const path = `ec_occ_${ps}_${pe}.xlsx`;
+    try {
+      await uploadFileToStorage(file, path);
+      showToast(`✓ Ec Occ file saved to cloud — ${applied} properties updated`, 'ok');
+    } catch(e){
+      showToast(`⚠ ${applied} properties updated but file not saved to cloud: ${e.message}`, 'warn');
+    }
+  } else {
+    showToast(`✓ ${applied} properties updated`, 'ok');
+  }
+}
+
+function showOccDetail(rowId, type){
+  const r = state[type].rows.find(r=>r.id===rowId);
+  if(!r||!r.occMonths||!r.occMonths.length) return;
+  const months = getPeriodMonths('nonpgo') || [];
+  document.getElementById('occ-detail-title').textContent = (r.name||'Property') + ' — Monthly Ec Occ';
+  const nonNull = r.occMonths.filter(v=>v!==null);
+  const avg = nonNull.length>0 ? nonNull.reduce((s,v)=>s+v,0)/nonNull.length : null;
+  const rows = r.occMonths.map((v, i)=>{
+    const label = months[i] ? `${MONTH_NAMES[months[i].month-1]} ${months[i].year}` : `Month ${i+1}`;
+    const tierColor = v===null?'var(--text3)':v>=94?'#15803d':v>=91?'#d97706':v>=89?'#d97706':'#b91c1c';
+    return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span style="color:var(--text2)">${label}</span>
+      <span style="font-family:'DM Mono',monospace;font-weight:500;color:${tierColor}">${v!==null?v.toFixed(2)+'%':'—'}</span>
+    </div>`;
+  }).join('');
+  const avgColor = avg===null?'var(--text3)':avg>=94?'#15803d':avg>=89?'var(--amber)':'var(--red)';
+  document.getElementById('occ-detail-content').innerHTML = rows +
+    `<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:13px;font-weight:600">
+      <span>6-Month Average</span>
+      <span style="font-family:'DM Mono',monospace;color:${avgColor}">${avg!==null?avg.toFixed(2)+'%':'—'}</span>
+    </div>`;
+  document.getElementById('occ-detail-modal').style.display = 'flex';
+}
+
 // ─── Toast notifications ─────────────────────────────────────────────────────
 function showToast(msg, type='ok'){
   const colors = {ok:'#166534', err:'#8b1a1a', warn:'#92660a'};
@@ -712,224 +918,7 @@ async function downloadStoredFile(path, filename){
   }
 }
 
-// ─── Cash Flow Statement parser ───────────────────────────────────────────────
-let pendingCFImport = null;
-
-function triggerCFUpload(type, rid){
-  const inp=document.createElement('input');
-  inp.type='file'; inp.accept='.xlsx,.xls';
-  inp.style.display='none';
-  inp.onchange=e=>{parseCFStatement(e.target.files[0],type,rid);document.body.removeChild(inp);};
-  document.body.appendChild(inp);
-  inp.click();
-}
-
-function parseCFStatement(file, type, rid){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try {
-      const wb=XLSX.read(e.target.result,{type:'array'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      const periodMonths=getPeriodMonths(type);
-      let platform='', propName='', headerRow=null, headerRowIdx=-1;
-
-      for(let i=0;i<Math.min(data.length,15);i++){
-        const row=data[i];
-        const r0=String(row[0]||'').trim();
-        const r1=String(row[1]||'').trim();
-        if(r0.startsWith('Properties:')||r1.startsWith('Properties:')){
-          platform='Appfolio';
-          const raw=(r0.startsWith('Properties:')?r0:r1).replace('Properties:','').trim();
-          const parts=raw.split(' - ');
-          propName=parts.length>=2?parts[1].trim():raw;
-        }
-        if(i===2&&!platform&&r0&&!r0.includes('Cash Flow')&&!r0.includes('Prepared')){
-          platform='Buildium';
-          propName=r0.split(' - ')[0].trim();
-        }
-        if(!headerRow&&row.some(c=>String(c).match(/^\d{2}-\d{4}$|^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{4}$/))){
-          headerRow=row; headerRowIdx=i;
-        }
-      }
-
-      let targetCols=[];
-      if(headerRow&&periodMonths){
-        headerRow.forEach((h,ci)=>{
-          if(periodMonths.some(pm=>monthMatchesHeader(h,pm.year,pm.month))) targetCols.push(ci);
-        });
-      }
-
-      const periodLabel=periodMonths
-        ?`${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`
-        :'Full period';
-
-      const items={noi:null,cashFlow:null,secDeposit:null,secDepositsHeld:null,mgmtSecDeposit:null,trustAccount:null,clearingAccount:null,accountsPayable:null,prepaidRent:null,prepaidCharges:null,prepayments:null,prepaidExpenses:null,lastMonthsRent:null,accruals:null,realEstateTaxPayable:null,propertyTaxEscrow:null,propertyTaxInsEscrow:null,accruedPropertyTaxes:null,taxInsPayable:null,escrowHeldAtBank:null,ownerContribution:null,ownerDistributions:null,priorYrDist:null,lineOfCredit:null,capEx:null};
-      const LABELS={
-        noi:                  ['noi - net operating income','net operating income'],
-        cashFlow:             ['cash flow'],
-        secDeposit:           ['security deposit liability','security deposit account','security deposits','security deposit'],
-        secDepositsHeld:      ['security deposits held'],
-        mgmtSecDeposit:       ['mgmt held security deposits','management held security deposits'],
-        trustAccount:         ['trust account'],
-        clearingAccount:      ['clearing account','refund - clearing account'],
-        accountsPayable:      ['accounts payable'],
-        prepaidRent:          ['prepaid rent'],
-        prepaidCharges:       ['prepaid charges'],
-        prepayments:          ['prepayments'],
-        prepaidExpenses:      ['prepaid expenses'],
-        lastMonthsRent:       ["last month's rent",'last months rent'],
-        accruals:             ['accruals','accrued expenses'],
-        realEstateTaxPayable: ['real estate tax payable'],
-        propertyTaxEscrow:    ['property tax escrow'],
-        propertyTaxInsEscrow: ['property tax & insurance escrow','tax & insurance escrow'],
-        accruedPropertyTaxes: ['accrued property taxes'],
-        taxInsPayable:        ['tax & insurance payable','taxes & insurance payable'],
-        escrowHeldAtBank:     ['escrow held at bank'],
-        ownerContribution:    ['owner contribution','owner contributions'],
-        ownerDistributions:   ['owner distributions','owner distribution'],
-        priorYrDist:          ['prior year owner distribution','prior yr owner distribution'],
-        lineOfCredit:         ['line of credit'],
-        capEx:                ['capital expenditures','capital improvements','total capital expenses','total capital expenditures','building improvements','hvac unit']
-      };
-
-      function sumCols(row){
-        if(targetCols.length>0) return targetCols.reduce((s,ci)=>{const v=parseFloat(String(row[ci]).replace(/,/g,''));return s+(isNaN(v)?0:v);},0);
-        for(let c=row.length-1;c>=0;c--){const v=parseFloat(String(row[c]).replace(/,/g,''));if(!isNaN(v))return v;}
-        return null;
-      }
-
-      for(let i=headerRowIdx+1;i<data.length;i++){
-        const row=data[i];
-        const label=String(row[0]||'').trim().toLowerCase();
-        // Two-pass matching: exact match takes priority over substring.
-        // Substring match is blocked when the label starts with "total" but the
-        // pattern does not — prevents section-total rows from shadowing detail lines.
-        let exactHit = false;
-        for(const[key,patterns] of Object.entries(LABELS)){
-          if(items[key]===null && patterns.some(p=>label===p.trim())){
-            items[key]=sumCols(row);
-            exactHit=true;
-          }
-        }
-        if(!exactHit){
-          for(const[key,patterns] of Object.entries(LABELS)){
-            if(items[key]===null && patterns.some(p=>
-              label.includes(p) && (!label.startsWith('total') || p.startsWith('total'))
-            )){
-              items[key]=sumCols(row);
-            }
-          }
-        }
-      }
-
-      const r=state[type].rows.find(r=>r.id===rid);
-      const hasLOC=r?r.loc:false;
-
-      let adj=items.cashFlow||0;
-      const adjLines=[];
-      if(items.cashFlow!==null) adjLines.push({label:'Cash Flow',val:items.cashFlow,sign:''});
-
-      const alwaysSubtract = [
-        ['secDeposit',           '− Security Deposit'],
-        ['secDepositsHeld',      '− Security Deposits Held'],
-        ['mgmtSecDeposit',       '− Mgmt Held Security Deposits'],
-        ['trustAccount',         '− Trust Account'],
-        ['clearingAccount',      '− Clearing Account'],
-        ['accountsPayable',      '− Accounts Payable'],
-        ['prepaidRent',          '− Prepaid Rent'],
-        ['prepaidCharges',       '− Prepaid Charges'],
-        ['prepayments',          '− Prepayments'],
-        ['prepaidExpenses',      '− Prepaid Expenses'],
-        ['lastMonthsRent',       "− Last Month's Rent"],
-        ['accruals',             '− Accruals'],
-        ['realEstateTaxPayable', '− Real Estate Tax Payable'],
-        ['propertyTaxEscrow',    '− Property Tax Escrow'],
-        ['propertyTaxInsEscrow', '− Property Tax & Insurance Escrow'],
-        ['accruedPropertyTaxes', '− Accrued Property Taxes'],
-        ['taxInsPayable',        '− Tax & Insurance Payable'],
-        ['escrowHeldAtBank',     '− Escrow Held at Bank'],
-        ['ownerContribution',    '− Owner Contribution'],
-        ['ownerDistributions',   '− Owner Distributions'],
-        ['priorYrDist',          '− Prior Year Owner Distribution'],
-        ['lineOfCredit',         '− Line of Credit'],
-      ];
-      for(const [key,label] of alwaysSubtract){
-        if(items[key]!==null&&items[key]!==0){
-          adj-=items[key];
-          adjLines.push({label,val:items[key]});
-        }
-      }
-      if(hasLOC&&items.capEx!==null&&items.capEx!==0){
-        const addBack=Math.abs(items.capEx);
-        adj+=addBack;
-        adjLines.push({label:'+ CapEx add-back (LOC)',val:addBack});
-      }
-
-      pendingCFImport={type,rowId:rid,noi:items.noi,rawCF:items.cashFlow,adjCf:adj,adjLines,propName,platform,periodLabel,file};
-      showCFModal();
-    } catch(err){
-      alert('Could not read the file.\n\n'+err.message);
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-function showCFModal(){
-  const {noi,rawCF,adjCf,adjLines,propName,platform,periodLabel}=pendingCFImport;
-  document.getElementById('cf-modal-platform').textContent=platform?`Detected platform: ${platform}`:'';
-  document.getElementById('cf-modal-prop').textContent=propName||'Could not detect';
-  document.getElementById('cf-modal-period').textContent=periodLabel||'—';
-  const noiEl=document.getElementById('cf-modal-noi');
-  noiEl.textContent=noi!==null?fmtD(noi,2):'Not found';
-  noiEl.className='modal-val'+(noi===null?' na':'');
-  document.getElementById('cf-modal-raw').textContent=rawCF!==null?fmtD(rawCF,2):'Not found';
-  document.getElementById('cf-modal-raw').className='modal-val'+(rawCF===null?' na':'');
-  const adjEl=document.getElementById('cf-modal-adj');
-  adjEl.textContent=fmtD(adjCf,2);
-  adjEl.className='modal-val'+(adjCf<0?' na':'');
-  const breakdown=adjLines.map(l=>{
-    const valStr=l.val<0?`($${Math.abs(l.val).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})})`:`$${l.val.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${l.label||'Cash Flow'}</span><span>${valStr}</span></div>`;
-  }).join('');
-  document.getElementById('cf-modal-adjustments').innerHTML=breakdown||'<span style="color:var(--text3)">No adjustments</span>';
-  const warnWrap=document.getElementById('cf-modal-warn-wrap');
-  const warn=document.getElementById('cf-modal-warn');
-  if(rawCF===null){warnWrap.style.display='';warn.textContent='Cash Flow line not found in file.';}
-  else warnWrap.style.display='none';
-  document.getElementById('cf-modal-apply-btn').disabled=rawCF===null;
-  document.getElementById('cf-import-modal').style.display='flex';
-}
-
-function closeCFModal(){
-  document.getElementById('cf-import-modal').style.display='none';
-  pendingCFImport=null;
-}
-
-async function applyCFImport(){
-  if(!pendingCFImport)return;
-  const {type,rowId:rid,noi,rawCF,adjCf,file}=pendingCFImport;
-  const r=state[type].rows.find(r=>r.id===rid);
-  if(r){
-    if(noi!==null)r.currentNoi=noi;
-    r.cf=rawCF; r.adjCf=adjCf; r.cfImported=true;
-    if(file){
-      try {
-        const path = fileStoragePath(r, 'cf', type);
-        await uploadFileToStorage(file, path);
-        r.cfFilePath = path;
-        showToast('✓ Cash flow file saved to cloud — ' + (r.name||'property'), 'ok');
-      } catch(e){
-        console.warn('CF file upload failed:', e.message);
-        showToast('⚠ CF numbers imported, but file could not be saved to cloud: ' + e.message, 'warn');
-      }
-    }
-  }
-  closeCFModal();
-  saveState();
-  renderTable(type);
-}
-
+// ─── Income Statement parser (AppFolio + Buildium) ───────────────────────────
 function triggerUpload(type, rid){
   const inp=document.createElement('input');
   inp.type='file'; inp.accept='.xlsx,.xls';
@@ -1093,7 +1082,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
 function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1130,6 +1119,7 @@ function renderTable(type){
     const capCell=row.group?'<span style="font-size:11px;color:var(--text3)">see group</span>':editCell('<span>'+(capDisplay||'')+'</span>',row.capital,type,row.id,'capital','0');
     const priorVal=row.priorNoi!==''&&row.priorNoi!==null?row.priorNoi:'';
     const uploadIcon=row.imported?ICON_CHECKMARK:ICON_UPLOAD;
+    const hasMonthlyOcc = row.occMonths && row.occMonths.some(v=>v!==null);
     const occDisplay = row.occ!=='' ? fmtOcc(row.occ) : '';
     const priorDisplay = priorVal!=='' ? fmtAcct(priorVal) : '';
     const noiDisplay = row.currentNoi!=='' ? fmtAcct(row.currentNoi) : '';
@@ -1144,14 +1134,19 @@ function renderTable(type){
       : (parseFloat(row.currentNoi)<0 ? 'negative' : '');
     const adjCfNum = parseFloat(adjCfVal);
     const adjCfClass = !isNaN(adjCfNum) ? (adjCfNum > 0 ? 'cf-positive' : adjCfNum < 0 ? 'cf-negative' : '') : '';
-    const cfUploadIcon=row.cfImported?ICON_CHECKMARK:ICON_UPLOAD;
     const obDisplay = ob>0 ? fmtD(ob,2) : '<span style="color:var(--text3)">—</span>';
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
     return`<tr>
       <td><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
-      <td>${editCell('<span class="'+(parseFloat(row.occ)<0?'negative':'')+'">'+(occDisplay||'')+'</span>',row.occ,type,row.id,'occ','e.g. 94.56')}</td>
+      <td>${hasMonthlyOcc
+        ? `<div style="display:flex;align-items:center;gap:5px;padding:4px 7px">
+             <span style="font-family:'DM Mono',monospace;font-size:12.5px;${parseFloat(row.occ)>=94?'color:#15803d':parseFloat(row.occ)>=89?'color:var(--amber)':'color:var(--red)'}">${occDisplay||'—'}</span>
+             <button onclick="showOccDetail(${row.id},'${type}')" style="padding:2px 7px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--text3);cursor:pointer;font-size:10px;font-family:'DM Sans',sans-serif;white-space:nowrap" title="View all 6 monthly figures">details</button>
+           </div>`
+        : editCell('<span class="'+(parseFloat(row.occ)<0?'negative':'')+'">'+(occDisplay||'')+'</span>',row.occ,type,row.id,'occ','e.g. 94.56')
+      }</td>
       <td>${badge(ot)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${obDisplay}</td>
       <td>${editCell('<span class="'+priorClass+'">'+(priorDisplay||'')+'</span>',priorVal,type,row.id,'priorNoi','blank = N/A')}</td>
@@ -1171,27 +1166,14 @@ function renderTable(type){
         <option value="indigo"   ${row.platform==='indigo'  ?'selected':''}>Manual</option>
       </select></td>
       <td>
-        ${row.platform==='buildium'
-          ? (()=>{
+        ${row.platform==='indigo'
+          ? '<span style="font-size:11px;color:var(--text3);font-style:italic">Manual entry</span>'
+          : (()=>{
               const btnClass = row.incomeFilePath ? 'loaded' : row.imported ? 'warn-state' : '';
               const btnLabel = row.incomeFilePath ? '✓ Saved to cloud' : row.imported ? '⚠ Not saved' : 'Import income stmt';
               const dlBtn = row.incomeFilePath ? `<button class="dl-btn" title="Download stored income statement" data-path="${row.incomeFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_income.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>` : '';
               return `<div style="display:flex;align-items:center;gap:4px"><button class="upload-btn ${btnClass}" onclick="triggerUpload('${type}',${row.id})" title="${row.incomeFilePath?'File saved — click to re-import':row.imported?'Numbers imported but file not saved to cloud — click to re-import':'Click to import income statement'}">${uploadIcon}${btnLabel}</button>${dlBtn}</div>`;
             })()
-          : row.platform==='indigo'
-            ? '<span style="font-size:11px;color:var(--text3);font-style:italic">Manual entry</span>'
-            : '<span style="font-size:11px;color:var(--text3)">—</span>'
-        }
-      </td>
-      <td>
-        ${row.platform==='appfolio'
-          ? (()=>{
-              const cfBtnClass = row.cfFilePath ? 'loaded' : row.cfImported ? 'warn-state' : '';
-              const cfBtnLabel = row.cfFilePath ? '✓ CF Saved to cloud' : row.cfImported ? '⚠ CF Not saved' : 'Import CF stmt';
-              const cfDlBtn = row.cfFilePath ? `<button class="dl-btn" title="Download stored CF statement" data-path="${row.cfFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_cf.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>` : '';
-              return `<div style="display:flex;align-items:center;gap:4px"><button class="upload-btn-cf ${cfBtnClass}" onclick="triggerCFUpload('${type}',${row.id})" title="${row.cfFilePath?'CF file saved — click to re-import':row.cfImported?'CF numbers imported but file not saved to cloud — click to re-import':'Click to import cash flow statement'}">${cfUploadIcon}${cfBtnLabel}</button>${cfDlBtn}</div>`;
-            })()
-          : '<span style="font-size:11px;color:var(--text3)">—</span>'
         }
       </td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
@@ -1200,7 +1182,7 @@ function renderTable(type){
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
-  rows.push(`<tr class="total-row-tbl"><td colspan="19" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
+  rows.push(`<tr class="total-row-tbl"><td colspan="18" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
 }
@@ -1635,10 +1617,9 @@ function rollToNextPeriod(){
       r.cf          = '';
       r.adjCf       = '';
       r.occ         = '';
+      r.occMonths   = [];
       r.imported      = false;
-      r.cfImported    = false;
       r.incomeFilePath= '';
-      r.cfFilePath    = '';
     });
     document.getElementById('pstart-'+type).value = newStart;
     document.getElementById('pend-'+type).value   = newEnd;
