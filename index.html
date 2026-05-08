@@ -38,7 +38,7 @@
   .period-hint{font-size:11px;color:var(--text3);align-self:flex-end;padding-bottom:9px;}
   .formula-bar{background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--amber);}
   .formula-bar strong{font-weight:500;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:16px;overflow:hidden;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:16px;overflow:clip;}
   .card-header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);gap:12px;flex-wrap:wrap;}
   .card-title{font-size:13px;font-weight:500;}
   .card-meta{font-size:12px;color:var(--text3);font-family:'DM Mono',monospace;}
@@ -1306,11 +1306,15 @@ function renderTable(type){
     if(!hasOcc&&!hasNOI&&!hasCF) rowWarns.push('No data entered on any trigger');
     if(row.loc&&hasCF&&(row.capexCredit===''||row.capexCredit===undefined||row.capexCredit===null)) rowWarns.push('LOC property — CapEx credit not set');
     if(!row.group&&hasCF&&(row.capital===''||row.capital===undefined||row.capital===null||parseFloat(row.capital)===0)) rowWarns.push('No unreturned capital — CF tier will always Miss');
-    const rowWarnHtml=rowWarns.length
-      ? `<tr><td class="col-sticky" style="padding:2px 8px 4px;border-bottom:none"></td><td colspan="21" style="padding:2px 8px 4px;border-bottom:1px solid var(--border)">${rowWarns.map(w=>`<span class="warn-pill">⚠ ${w}</span>`).join(' ')}</td></tr>`
+    const warnIcon=rowWarns.length
+      ? `<span title="${rowWarns.map(w=>'⚠ '+w).join('\n')}" style="color:var(--amber);font-size:13px;cursor:help;flex-shrink:0" aria-label="Warnings">⚠</span>`
       : '';
-    return rowWarnHtml+`<tr>
-      <td class="col-sticky" ${!row.name||row.name.trim()===''?'style="background:#fffbf0"':''}><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)" style="${!row.name||row.name.trim()===''?'border-color:#d4a017;background:#fffbf0;':''}"></td>
+    return`<tr>
+      <td class="col-sticky" style="${!row.name||row.name.trim()===''?'background:#fffbf0;':''}">
+        <div style="display:flex;align-items:center;gap:5px">
+          ${warnIcon}<input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)" style="flex:1;${!row.name||row.name.trim()===''?'border-color:#d4a017;background:#fffbf0;':''}">
+        </div>
+      </td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${hasMonthlyOcc
         ? `<div style="display:flex;align-items:center;gap:5px;padding:4px 7px">
