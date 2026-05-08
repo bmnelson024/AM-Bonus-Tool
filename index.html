@@ -213,6 +213,19 @@
   </div>
 </div>
 
+<!-- Notes Modal -->
+<div class="modal-overlay" id="notes-modal" style="display:none" onclick="if(event.target===this)closeNoteModal()">
+  <div class="modal" style="width:460px">
+    <h3 id="notes-modal-title">Note</h3>
+    <div class="modal-sub" id="notes-modal-sub"></div>
+    <textarea id="notes-modal-ta" rows="7" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);resize:vertical;margin:12px 0 20px;line-height:1.6;" placeholder="Type your note here…"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeNoteModal()">Cancel</button>
+      <button class="btn-apply" onclick="saveNoteModal()">Save note</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal -->
 <div class="modal-overlay" id="import-modal" style="display:none">
   <div class="modal">
@@ -237,6 +250,24 @@
       </div>
       <div id="modal-warn-wrap" style="display:none">
         <div class="modal-warn" id="modal-warn"></div>
+      </div>
+      <!-- LOC CapEx credit section — shown only for LOC properties -->
+      <div id="modal-capex-section" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">LOC — CapEx Credit</span>
+          <span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 7px;border-radius:10px;font-weight:500">Line of Credit property</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+          Capital expenditures funded by the line of credit are credited back to Adj. Cash Flow.<br>
+          Confirm the amount detected below, enter manually, or leave blank to skip.
+        </div>
+        <div id="modal-capex-lines" style="margin-bottom:10px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text3)"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap">Credit amount ($)</label>
+          <input type="number" id="modal-capex-input" min="0" step="0.01"
+            style="width:160px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:13px;background:var(--bg);color:var(--text)"
+            placeholder="0">
+        </div>
       </div>
     </div>
     <div class="modal-actions">
@@ -314,7 +345,7 @@
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:85px">Total bonus</th>
-          <th style="min-width:160px">Notes</th>
+          <th style="min-width:42px;text-align:center" title="Notes">📝</th>
           <th></th>
         </tr></thead>
         <tbody id="body-nonpgo"></tbody></table>
@@ -389,7 +420,7 @@
           <th style="min-width:90px">Platform</th>
           <th style="min-width:110px">Import income stmt</th>
           <th style="min-width:85px">Total bonus</th>
-          <th style="min-width:160px">Notes</th>
+          <th style="min-width:42px;text-align:center" title="Notes">📝</th>
           <th></th>
         </tr></thead>
         <tbody id="body-pgo"></tbody></table>
@@ -505,7 +536,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
   });
 }
 
@@ -539,9 +570,11 @@ function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
 function getEffectiveCF(r){
   const cf = r.cf!==''&&r.cf!==undefined&&r.cf!==null ? parseFloat(r.cf) : null;
   if(cf===null||isNaN(cf)) return r.cf;
-  const adj = r.adjustments!==''&&r.adjustments!==undefined&&r.adjustments!==null ? parseFloat(r.adjustments) : null;
-  if(adj===null||isNaN(adj)) return cf;
-  return cf - adj;
+  const adj   = r.adjustments !==''&&r.adjustments !==undefined&&r.adjustments !==null ? parseFloat(r.adjustments)  : 0;
+  const capex = r.capexCredit !==''&&r.capexCredit !==undefined&&r.capexCredit !==null ? parseFloat(r.capexCredit) : 0;
+  const adjVal   = isNaN(adj)   ? 0 : adj;
+  const capexVal = isNaN(capex) ? 0 : capex;
+  return cf + capexVal - adjVal;
 }
 function buildCFMap(type){
   const map={};
@@ -860,6 +893,30 @@ function showOccDetail(rowId, type){
   document.getElementById('occ-detail-modal').style.display = 'flex';
 }
 
+// ─── Notes modal ─────────────────────────────────────────────────────────────
+let pendingNote = null;
+function showNoteModal(type, rowId){
+  const r = state[type].rows.find(r=>r.id===rowId);
+  if(!r) return;
+  pendingNote = {type, rowId};
+  document.getElementById('notes-modal-title').textContent = r.name || 'Note';
+  document.getElementById('notes-modal-sub').textContent = 'Add or edit a note for this property.';
+  document.getElementById('notes-modal-ta').value = r.notes || '';
+  document.getElementById('notes-modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('notes-modal-ta').focus(), 50);
+}
+function closeNoteModal(){
+  document.getElementById('notes-modal').style.display = 'none';
+  pendingNote = null;
+}
+function saveNoteModal(){
+  if(!pendingNote) return;
+  const {type, rowId} = pendingNote;
+  const val = document.getElementById('notes-modal-ta').value.trim();
+  setRow(type, rowId, 'notes', val);
+  closeNoteModal();
+}
+
 // ─── Toast notifications ─────────────────────────────────────────────────────
 function showToast(msg, type='ok'){
   const colors = {ok:'#166534', err:'#8b1a1a', warn:'#92660a'};
@@ -991,6 +1048,31 @@ function parseStatement(file, type, rid){
         ? `${MONTH_NAMES[periodMonths[0].month-1]} ${periodMonths[0].year} – ${MONTH_NAMES[periodMonths[periodMonths.length-1].month-1]} ${periodMonths[periodMonths.length-1].year} (${targetCols.length} months)`
         : 'Full period (no date filter)';
 
+      // CapEx keyword list — order matters (more specific first)
+      const CAPEX_KEYWORDS = [
+        'capital expenditure','capital expenditures',
+        'capital improvement','capital improvements',
+        'capital expense','capital expenses',
+        'capital repair','capital repairs',
+        'capital project','capital projects',
+        'capex','cap ex',
+        'building improvement','building improvements',
+        'replacement reserve','replacement reserves',
+        'property improvement','property improvements',
+        'major repair','major repairs',
+      ];
+      function isCapexLabel(lbl){
+        return CAPEX_KEYWORDS.some(kw=>lbl===kw||lbl.includes(kw));
+      }
+      function sumRow(row){
+        if(targetCols.length>0){
+          return targetCols.reduce((s,ci)=>{const v=parseFloat(String(row[ci]).replace(/,/g,''));return s+(isNaN(v)?0:v);},0);
+        }
+        for(let c=row.length-1;c>=0;c--){const v=parseFloat(String(row[c]).replace(/,/g,''));if(!isNaN(v))return v;}
+        return null;
+      }
+
+      const capexLines=[];
       for(let i=headerRowIdx+1;i<data.length;i++){
         const row=data[i];
         const label=String(row[0]||'').trim().toLowerCase();
@@ -998,33 +1080,29 @@ function parseStatement(file, type, rid){
         const isNOI = label==='net operating income' ||
                       label==='noi - net operating income' ||
                       (label.includes('noi') && label.includes('net operating income'));
-
-        const isNI = label==='net income' ||
-                     label==='net income (loss)' ||
-                     label==='total net income' ||
-                     label==='net income / (loss)' ||
-                     (label.startsWith('net income') && label.length < 30);
+        const isNI  = label==='net income' ||
+                      label==='net income (loss)' ||
+                      label==='total net income' ||
+                      label==='net income / (loss)' ||
+                      (label.startsWith('net income') && label.length < 30);
 
         if((isNOI && noi===null)||(isNI && cf===null)){
-          let val=null;
-          if(targetCols.length>0){
-            val=targetCols.reduce((s,ci)=>{
-              const v=parseFloat(String(row[ci]).replace(/,/g,''));
-              return s+(isNaN(v)?0:v);
-            },0);
-          } else {
-            for(let c=row.length-1;c>=0;c--){
-              const v=parseFloat(String(row[c]).replace(/,/g,''));
-              if(!isNaN(v)){val=v;break;}
-            }
-          }
+          const val=sumRow(row);
           if(isNOI && noi===null) noi=val;
           if(isNI  && cf===null)  cf=val;
         }
-        if(noi!==null && cf!==null) break;
-      }
 
-      pendingImport={type,rowId:rid,noi,cf,propName,platform,periodLabel,file};
+        // CapEx detection — collect all matches (don't break early)
+        if(!isNOI && !isNI && isCapexLabel(label)){
+          const val=sumRow(row);
+          if(val!==null && val!==0){
+            capexLines.push({label:String(row[0]||'').trim(), amount:val});
+          }
+        }
+      }
+      const capexTotal = capexLines.length ? capexLines.reduce((s,l)=>s+Math.abs(l.amount),0) : 0;
+
+      pendingImport={type,rowId:rid,noi,cf,capexLines,capexTotal,propName,platform,periodLabel,file};
       showModal();
     } catch(err){
       alert('Could not read the file. Please make sure it is a valid Appfolio or Buildium Excel export.\n\n'+err.message);
@@ -1034,7 +1112,7 @@ function parseStatement(file, type, rid){
 }
 
 function showModal(){
-  const {noi,cf,propName,platform,periodLabel}=pendingImport;
+  const {noi,cf,propName,platform,periodLabel,capexLines,capexTotal,type,rowId}=pendingImport;
   document.getElementById('modal-platform').textContent=platform ? `Detected platform: ${platform}` : '';
   document.getElementById('modal-prop').textContent=propName||'Could not detect';
   document.getElementById('modal-period-info').textContent=periodLabel||'—';
@@ -1052,6 +1130,35 @@ function showModal(){
   if(msgs.length){warnWrap.style.display='';warn.textContent=msgs.join(' ');}
   else warnWrap.style.display='none';
   document.getElementById('modal-apply-btn').disabled=noi===null&&cf===null;
+
+  // CapEx section — only for LOC properties
+  const row = state[type] && state[type].rows.find(r=>r.id===rowId);
+  const capexSection = document.getElementById('modal-capex-section');
+  if(row && row.loc){
+    capexSection.style.display='';
+    const linesEl = document.getElementById('modal-capex-lines');
+    if(capexLines && capexLines.length){
+      linesEl.innerHTML = capexLines.map(l=>
+        `<div style="display:flex;justify-content:space-between;padding:2px 0">
+          <span style="color:var(--text2)">${esc(l.label)}</span>
+          <span>${fmtD(Math.abs(l.amount),2)}</span>
+        </div>`
+      ).join('') +
+      `<div style="display:flex;justify-content:space-between;padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px;font-weight:500;color:var(--text)">
+        <span>Detected total</span><span>${fmtD(capexTotal,2)}</span>
+      </div>`;
+    } else {
+      linesEl.innerHTML = '<span style="font-style:italic;font-family:\'DM Sans\',sans-serif">No CapEx lines detected — enter manually if applicable.</span>';
+    }
+    // Pre-fill: existing capexCredit on row, or detected total if >0
+    const existing = row.capexCredit!==''&&row.capexCredit!==undefined ? parseFloat(row.capexCredit) : null;
+    document.getElementById('modal-capex-input').value =
+      existing!==null && !isNaN(existing) ? existing :
+      capexTotal > 0 ? capexTotal.toFixed(2) : '';
+  } else {
+    capexSection.style.display='none';
+  }
+
   document.getElementById('import-modal').style.display='flex';
 }
 
@@ -1067,6 +1174,12 @@ async function applyImport(){
   if(r){
     if(noi!==null) r.currentNoi=noi;
     if(cf!==null)  r.cf=cf;
+    // Apply CapEx credit for LOC properties
+    if(r.loc){
+      const capexInput=document.getElementById('modal-capex-input');
+      const capexVal=capexInput ? parseFloat(capexInput.value) : NaN;
+      r.capexCredit = (!isNaN(capexVal) && capexVal>0) ? capexVal : '';
+    }
     r.imported=true;
     if(file){
       try {
@@ -1094,7 +1207,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
 function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1140,11 +1253,10 @@ function renderTable(type){
     const adjsDisplay = adjsVal!=='' ? fmtAcct(adjsVal) : '';
     const adjsNum = parseFloat(adjsVal);
     const adjsClass = !isNaN(adjsNum) ? (adjsNum < 0 ? 'cf-positive' : adjsNum > 0 ? 'cf-negative' : '') : '';
-    // Adj CF is computed: cf - adjustments
-    const cfNum = parseFloat(row.cf);
-    const adjCfComputed = !isNaN(cfNum) ? (!isNaN(adjsNum) ? cfNum - adjsNum : cfNum) : null;
-    const adjCfDisplay = adjCfComputed!==null ? fmtAcct(adjCfComputed) : '';
-    const adjCfClass = adjCfComputed!==null ? (adjCfComputed>0?'cf-positive':adjCfComputed<0?'cf-negative':'') : '';
+    // Adj CF is computed via getEffectiveCF: cf + capexCredit - adjustments
+    const adjCfComputed = row.cf!=='' ? getEffectiveCF(row) : null;
+    const adjCfDisplay = adjCfComputed!==null&&!isNaN(adjCfComputed) ? fmtAcct(adjCfComputed) : '';
+    const adjCfClass = adjCfComputed!==null&&!isNaN(adjCfComputed) ? (adjCfComputed>0?'cf-positive':adjCfComputed<0?'cf-negative':'') : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
     const cfClass = parseFloat(row.cf)<0 ? ' negative' : '';
     const priorN = parseFloat(priorVal), currentN = parseFloat(row.currentNoi);
@@ -1172,7 +1284,12 @@ function renderTable(type){
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
       <td>${editCell('<span class="'+adjsClass+'">'+(adjsDisplay||'')+'</span>',adjsVal,type,row.id,'adjustments','0')}</td>
-      <td><div class="fmt-cell" style="cursor:default">${adjCfDisplay ? '<span class="'+adjCfClass+'">'+adjCfDisplay+'</span>' : '<span class="fmt-placeholder">—</span>'}</div></td>
+      <td><div class="fmt-cell" style="cursor:default;flex-direction:column;align-items:flex-start;gap:2px">
+        ${adjCfDisplay ? '<span class="'+adjCfClass+'">'+adjCfDisplay+'</span>' : '<span class="fmt-placeholder">—</span>'}
+        ${row.capexCredit!==''&&row.capexCredit!==undefined&&parseFloat(row.capexCredit)>0
+          ? `<span style="font-size:10px;color:#15803d;font-family:'DM Sans',sans-serif">+${fmtD(parseFloat(row.capexCredit),2)} capex credit</span>`
+          : ''}
+      </div></td>
       <td>${badge(ct)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
@@ -1195,7 +1312,11 @@ function renderTable(type){
         }
       </td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
-      <td><input value="${esc(row.notes)}" onchange="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
+      <td style="text-align:center">
+        <button onclick="showNoteModal('${type}',${row.id})" title="${row.notes ? esc(row.notes.slice(0,80))+(row.notes.length>80?'…':'') : 'Add a note'}" style="width:26px;height:26px;border-radius:5px;border:1px solid ${row.notes ? 'var(--accent)' : 'var(--border2)'};background:${row.notes ? 'var(--accent-light)' : 'transparent'};color:${row.notes ? 'var(--accent)' : 'var(--text3)'};cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='${row.notes ? 'var(--accent)' : 'var(--border2)'}';this.style.color='${row.notes ? 'var(--accent)' : 'var(--text3)'}'">
+          ${row.notes ? '📝' : '+'}
+        </button>
+      </td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
     </tr>`;
   });
@@ -1634,6 +1755,7 @@ function rollToNextPeriod(){
       r.currentNoi  = '';
       r.cf          = '';
       r.adjustments = '';
+      r.capexCredit = '';
       r.occ         = '';
       r.occMonths   = [];
       r.imported      = false;
