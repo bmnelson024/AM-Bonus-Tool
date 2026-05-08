@@ -52,6 +52,7 @@
   .upload-btn-cf{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:5px;border:1px solid #b0c8e0;background:transparent;color:var(--blue);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;}
   .upload-btn-cf:hover{background:var(--blue-light);}
   .upload-btn-cf.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+  .upload-btn-cf.warn-state{background:var(--amber-light);border-color:#d4a017;color:var(--amber);}
   .upload-btn-cf svg{width:11px;height:11px;flex-shrink:0;}
   .fmt-cell{padding:4px 7px;border-radius:5px;border:1px solid transparent;cursor:pointer;font-size:12.5px;font-family:'DM Mono',monospace;white-space:nowrap;min-height:26px;display:flex;align-items:center;}
   .fmt-cell:hover{border-color:var(--border);background:var(--bg);}
@@ -84,6 +85,7 @@
   .upload-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;}
   .upload-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
   .upload-btn.loaded{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+  .upload-btn.warn-state{background:var(--amber-light);border-color:#d4a017;color:var(--amber);}
   .upload-btn svg{width:11px;height:11px;flex-shrink:0;}
   .dl-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all 0.15s;flex-shrink:0;}
   .dl-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
@@ -495,6 +497,9 @@ const SEED = {
   }
 };
 
+// ─── HTML escape helper ───────────────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
 // ─── icon constants ──────────────────────────────────────────────────────────
 const ICON_UPLOAD   = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><rect x="2" y="10" width="12" height="4" rx="1"/></svg>';
 const ICON_CHECKMARK= '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>';
@@ -512,28 +517,56 @@ function initFromSeed(){
 
 // ─── tier logic ───────────────────────────────────────────────────────────────
 function occTier(v){if(v===''||v==null)return'miss';const p=parseFloat(v);if(isNaN(p))return'miss';return p>=94?'3':p>=91?'2':p>=89?'1':'miss';}
-function noiTier(prior,current){if(prior===''||prior==null)return'na';const p=parseFloat(prior),c=parseFloat(current);if(isNaN(p)||isNaN(c))return'na';if(p===0)return'miss';const pct=(c-p)/Math.abs(p)*100;return pct>=10?'3':pct>=6?'2':pct>=2?'1':'miss';}
+function noiTier(prior,current){
+  // No prior NOI → N/A (no benchmark exists)
+  if(prior===''||prior==null)return'na';
+  const p=parseFloat(prior);
+  if(isNaN(p))return'na';
+  // Prior exists but current is missing → Miss (benchmark exists, data not entered)
+  if(current===''||current==null)return'miss';
+  const c=parseFloat(current);
+  if(isNaN(c))return'miss';
+  if(p===0)return'miss';
+  const pct=(c-p)/Math.abs(p)*100;
+  return pct>=10?'3':pct>=6?'2':pct>=2?'1':'miss';
+}
 function cfTierFromPct(pct){if(pct===null||isNaN(pct))return'miss';return pct>=9?'3':pct>=6?'2':pct>=3?'1':'miss';}
-function annPct(cf,cap){const c=parseFloat(cf),k=parseFloat(cap);if(isNaN(c)||isNaN(k)||k===0)return null;return(c*2/k)*100;}
+// Returns the annualization multiplier based on actual period length (12 / months).
+// Falls back to 2 (6-month assumption) if period can't be determined.
+function getAnnFactor(type){
+  const months=getPeriodMonths(type||'nonpgo');
+  if(!months||months.length===0)return 2;
+  return 12/months.length;
+}
+function annPct(cf,cap,factor){const c=parseFloat(cf),k=parseFloat(cap);if(isNaN(c)||isNaN(k)||k===0)return null;return(c*(factor||2)/k)*100;}
 function wOcc(t){return t==='1'?0.05:t==='2'?0.15:t==='3'?0.25:0;}
 function wNOI(t){return wOcc(t);} // same tier weights as occ
 function wCF(t){return t==='1'?0.20:t==='2'?0.35:t==='3'?0.50:0;}
-function getEffectiveCF(r){return r.adjCf!==''&&r.adjCf!==undefined?r.adjCf:r.cf;}
+function getEffectiveCF(r){return r.adjCf!==''&&r.adjCf!==undefined&&r.adjCf!==null?r.adjCf:r.cf;}
 function buildCFMap(type){
   const map={};
+  const annFactor=getAnnFactor(type);
+  // Collect capital from ALL tabs so cross-tab groups resolve correctly (M-1 fix).
   const allGroupCapital={};
   ['nonpgo','pgo'].forEach(t=>{
     state[t].groups.forEach(g=>{
       if(!allGroupCapital[g.name]&&g.capital) allGroupCapital[g.name]=g.capital;
     });
   });
-  state[type].groups.forEach(g=>{
+  // Build the map from ALL groups across both tabs, not just the current tab (M-1 fix).
+  const allGroupsSeen={};
+  ['nonpgo','pgo'].forEach(t=>{
+    state[t].groups.forEach(g=>{
+      if(!allGroupsSeen[g.name]) allGroupsSeen[g.name]=g;
+    });
+  });
+  Object.values(allGroupsSeen).forEach(g=>{
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     if(!isNaN(k)&&k!==0){
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
         return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0);
       },0);
-      map[g.name]=cfTierFromPct((total*2/k)*100);
+      map[g.name]=cfTierFromPct((total*annFactor/k)*100);
     } else map[g.name]='miss';
   });
   return map;
@@ -591,19 +624,41 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function monthMatchesHeader(header, year, month) {
   const h = String(header).trim();
-  const bld = `${String(month).padStart(2,'0')}-${year}`;
-  if(h === bld) return true;
-  const app = `${MONTH_NAMES[month-1]} ${year}`;
-  if(h === app) return true;
+  const mm = String(month).padStart(2,'0');
+  const m1 = String(month);
+  const mon = MONTH_NAMES[month-1];
+  const yy = String(year).slice(-2);
+  // MM-YYYY (Buildium zero-padded)
+  if(h === `${mm}-${year}`) return true;
+  // M-YYYY (Buildium single-digit)
+  if(h === `${m1}-${year}`) return true;
+  // Mon YYYY (AppFolio)
+  if(h === `${mon} ${year}`) return true;
+  // Mon-YY
+  if(h === `${mon}-${yy}`) return true;
+  // MM/YYYY
+  if(h === `${mm}/${year}`) return true;
+  // M/YYYY
+  if(h === `${m1}/${year}`) return true;
   return false;
+}
+
+// ─── Toast notifications ─────────────────────────────────────────────────────
+function showToast(msg, type='ok'){
+  const colors = {ok:'#166534', err:'#8b1a1a', warn:'#92660a'};
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:2000;padding:11px 18px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;box-shadow:0 4px 16px rgba(0,0,0,0.18);max-width:360px;line-height:1.4;color:#fff;background:${colors[type]||colors.ok};opacity:1;transition:opacity 0.4s;`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(), 400); }, 4500);
 }
 
 // ─── Supabase file storage ───────────────────────────────────────────────────
 const SB_BUCKET = 'income-statements';
 
-function fileStoragePath(row, fileType){
-  const ps = document.getElementById('pstart-nonpgo').value || 'unknown';
-  const pe = document.getElementById('pend-nonpgo').value   || 'unknown';
+function fileStoragePath(row, fileType, type){
+  const ps = document.getElementById('pstart-'+(type||'nonpgo')).value || 'unknown';
+  const pe = document.getElementById('pend-'+(type||'nonpgo')).value   || 'unknown';
   const safeName = (row.name||'unnamed').replace(/[^a-zA-Z0-9_-]/g,'_');
   return safeName + '_' + ps + '_' + pe + '_' + fileType + '.xlsx';
 }
@@ -646,7 +701,9 @@ async function downloadStoredFile(path, filename){
     );
     if(!res.ok) throw new Error('Could not get download URL');
     const data = await res.json();
-    const url = SUPABASE_URL + '/storage/v1' + data.signedURL;
+    // signedURL (older SDK) or signedUrl (newer) may be a full URL or a path.
+    const signed = data.signedURL || data.signedUrl || '';
+    const url = signed.startsWith('http') ? signed : SUPABASE_URL + '/storage/v1' + signed;
     const a = document.createElement('a');
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -745,9 +802,23 @@ function parseCFStatement(file, type, rid){
       for(let i=headerRowIdx+1;i<data.length;i++){
         const row=data[i];
         const label=String(row[0]||'').trim().toLowerCase();
+        // Two-pass matching: exact match takes priority over substring.
+        // Substring match is blocked when the label starts with "total" but the
+        // pattern does not — prevents section-total rows from shadowing detail lines.
+        let exactHit = false;
         for(const[key,patterns] of Object.entries(LABELS)){
-          if(items[key]===null && patterns.some(p=>label===p||label===p.trim()||label.includes(p))){
+          if(items[key]===null && patterns.some(p=>label===p.trim())){
             items[key]=sumCols(row);
+            exactHit=true;
+          }
+        }
+        if(!exactHit){
+          for(const[key,patterns] of Object.entries(LABELS)){
+            if(items[key]===null && patterns.some(p=>
+              label.includes(p) && (!label.startsWith('total') || p.startsWith('total'))
+            )){
+              items[key]=sumCols(row);
+            }
           }
         }
       }
@@ -761,7 +832,10 @@ function parseCFStatement(file, type, rid){
 
       const alwaysSubtract = [
         ['secDeposit',           '− Security Deposit'],
+        ['secDepositsHeld',      '− Security Deposits Held'],
         ['mgmtSecDeposit',       '− Mgmt Held Security Deposits'],
+        ['trustAccount',         '− Trust Account'],
+        ['clearingAccount',      '− Clearing Account'],
         ['accountsPayable',      '− Accounts Payable'],
         ['prepaidRent',          '− Prepaid Rent'],
         ['prepaidCharges',       '− Prepaid Charges'],
@@ -841,10 +915,14 @@ async function applyCFImport(){
     r.cf=rawCF; r.adjCf=adjCf; r.cfImported=true;
     if(file){
       try {
-        const path = fileStoragePath(r, 'cf');
+        const path = fileStoragePath(r, 'cf', type);
         await uploadFileToStorage(file, path);
         r.cfFilePath = path;
-      } catch(e){ console.warn('CF file upload failed:', e.message); }
+        showToast('✓ Cash flow file saved to cloud — ' + (r.name||'property'), 'ok');
+      } catch(e){
+        console.warn('CF file upload failed:', e.message);
+        showToast('⚠ CF numbers imported, but file could not be saved to cloud: ' + e.message, 'warn');
+      }
     }
   }
   closeCFModal();
@@ -920,7 +998,11 @@ function parseStatement(file, type, rid){
                       label==='noi - net operating income' ||
                       (label.includes('noi') && label.includes('net operating income'));
 
-        const isNI = label==='net income';
+        const isNI = label==='net income' ||
+                     label==='net income (loss)' ||
+                     label==='total net income' ||
+                     label==='net income / (loss)' ||
+                     (label.startsWith('net income') && label.length < 30);
 
         if((isNOI && noi===null)||(isNI && cf===null)){
           let val=null;
@@ -987,10 +1069,14 @@ async function applyImport(){
     r.imported=true;
     if(file){
       try {
-        const path = fileStoragePath(r, 'income');
+        const path = fileStoragePath(r, 'income', type);
         await uploadFileToStorage(file, path);
         r.incomeFilePath = path;
-      } catch(e){ console.warn('Income file upload failed:', e.message); }
+        showToast('✓ Income statement saved to cloud — ' + (r.name||'property'), 'ok');
+      } catch(e){
+        console.warn('Income file upload failed:', e.message);
+        showToast('⚠ Numbers imported, but file could not be saved to cloud: ' + e.message, 'warn');
+      }
     }
   }
   closeModal();
@@ -1008,7 +1094,7 @@ function switchTab(t){
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',priorNoi:'',currentNoi:'',cf:'',adjCf:'',loc:false,platform:'buildium',cfImported:false,group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
-function removeLastRow(type){if(state[type].rows.length===0)return;state[type].rows.pop();saveState();renderTable(type);}
+function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
 function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
@@ -1021,6 +1107,7 @@ function renderTable(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
   const n=state[type].rows.length, rate=n>0?pool/n:0;
   const cfMap=buildCFMap(type);
+  const annFactor=getAnnFactor(type);
   const groupNames=state[type].groups.map(g=>g.name);
   const fb=document.getElementById('fbar-'+type);
   if(fb)fb.innerHTML=`<strong>Formula:</strong> Applicable Bonus per property = Bonus Metric % × (${fmt(pool)} ÷ ${n} ${n===1?'property':'properties'}) = <strong>per-property rate: ${n>0?fmtD(rate,2):'—'}</strong>`;
@@ -1034,7 +1121,7 @@ function renderTable(type){
   const rows=state[type].rows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
     const effectiveCF=getEffectiveCF(row);
-    const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital));
+    const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital,annFactor));
     const ob=rate*wOcc(ot), nb=rate*wNOI(nt), cb=rate*wCF(ct);
     const b=ob+nb+cb;
     totalBonus+=b;
@@ -1062,7 +1149,7 @@ function renderTable(type){
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
     return`<tr>
-      <td><input value="${row.name}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
+      <td><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${editCell('<span class="'+(parseFloat(row.occ)<0?'negative':'')+'">'+(occDisplay||'')+'</span>',row.occ,type,row.id,'occ','e.g. 94.56')}</td>
       <td>${badge(ot)}</td>
@@ -1085,10 +1172,12 @@ function renderTable(type){
       </select></td>
       <td>
         ${row.platform==='buildium'
-          ? `<div style="display:flex;align-items:center;gap:4px">
-               <button class="upload-btn ${row.imported?'loaded':''}" onclick="triggerUpload('${type}',${row.id})">${uploadIcon}${row.imported?'Imported':'Import income stmt'}</button>
-               ${row.incomeFilePath?`<button class="dl-btn" title="Download stored income statement" data-path="${row.incomeFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_income.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>`:''}
-             </div>`
+          ? (()=>{
+              const btnClass = row.incomeFilePath ? 'loaded' : row.imported ? 'warn-state' : '';
+              const btnLabel = row.incomeFilePath ? '✓ Saved to cloud' : row.imported ? '⚠ Not saved' : 'Import income stmt';
+              const dlBtn = row.incomeFilePath ? `<button class="dl-btn" title="Download stored income statement" data-path="${row.incomeFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_income.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>` : '';
+              return `<div style="display:flex;align-items:center;gap:4px"><button class="upload-btn ${btnClass}" onclick="triggerUpload('${type}',${row.id})" title="${row.incomeFilePath?'File saved — click to re-import':row.imported?'Numbers imported but file not saved to cloud — click to re-import':'Click to import income statement'}">${uploadIcon}${btnLabel}</button>${dlBtn}</div>`;
+            })()
           : row.platform==='indigo'
             ? '<span style="font-size:11px;color:var(--text3);font-style:italic">Manual entry</span>'
             : '<span style="font-size:11px;color:var(--text3)">—</span>'
@@ -1096,15 +1185,17 @@ function renderTable(type){
       </td>
       <td>
         ${row.platform==='appfolio'
-          ? `<div style="display:flex;align-items:center;gap:4px">
-               <button class="upload-btn-cf ${row.cfImported?'loaded':''}" onclick="triggerCFUpload('${type}',${row.id})">${cfUploadIcon}${row.cfImported?'CF Imported':'Import CF stmt'}</button>
-               ${row.cfFilePath?`<button class="dl-btn" title="Download stored CF statement" data-path="${row.cfFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_cf.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>`:''}
-             </div>`
+          ? (()=>{
+              const cfBtnClass = row.cfFilePath ? 'loaded' : row.cfImported ? 'warn-state' : '';
+              const cfBtnLabel = row.cfFilePath ? '✓ CF Saved to cloud' : row.cfImported ? '⚠ CF Not saved' : 'Import CF stmt';
+              const cfDlBtn = row.cfFilePath ? `<button class="dl-btn" title="Download stored CF statement" data-path="${row.cfFilePath}" data-filename="${(row.name||'property').replace(/['"<>&]/g,'_')}_cf.xlsx" onclick="downloadStoredFile(this.dataset.path,this.dataset.filename)">⬇</button>` : '';
+              return `<div style="display:flex;align-items:center;gap:4px"><button class="upload-btn-cf ${cfBtnClass}" onclick="triggerCFUpload('${type}',${row.id})" title="${row.cfFilePath?'CF file saved — click to re-import':row.cfImported?'CF numbers imported but file not saved to cloud — click to re-import':'Click to import cash flow statement'}">${cfUploadIcon}${cfBtnLabel}</button>${cfDlBtn}</div>`;
+            })()
           : '<span style="font-size:11px;color:var(--text3)">—</span>'
         }
       </td>
       <td class="${b>0?'bonus-val':'zero-val'}">${fmtD(b,2)}</td>
-      <td><input value="${row.notes||''}" onchange="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
+      <td><input value="${esc(row.notes)}" onchange="setRow('${type}',${row.id},'notes',this.value)" placeholder="Add a note..." style="font-size:12px;color:var(--text2);"></td>
       <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
     </tr>`;
   });
@@ -1121,13 +1212,14 @@ function renderGroups(type){
   // Build cross-tab capital map so shared groups (e.g. MWP 1) use consistent capital
   const allGroupCapital={};
   ['nonpgo','pgo'].forEach(t=>state[t].groups.forEach(g=>{if(!allGroupCapital[g.name]&&g.capital)allGroupCapital[g.name]=g.capital;}));
+  const annFactor=getAnnFactor(type);
   cont.innerHTML=state[type].groups.map(g=>{
     // Sum CF across BOTH tabs for this group name to match buildCFMap logic
     const totalCF=['nonpgo','pgo'].reduce((sum,t)=>sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0),0);
     // Display only properties in THIS tab for the panel list
     const props=state[type].rows.filter(r=>r.group===g.name);
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
-    const pct=(!isNaN(k)&&k!==0)?(totalCF*2/k*100):null;
+    const pct=(!isNaN(k)&&k!==0)?(totalCF*annFactor/k*100):null;
     const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
     return`<div class="group-row"><div class="group-head">
       <input class="g-name-inp" value="${g.name}" oninput="setGroupName('${type}',${g.id},this.value)">
@@ -1143,9 +1235,9 @@ function renderGroups(type){
 function calcEarned(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
   const n=state[type].rows.length;if(!n)return 0;
-  const rate=pool/n, cfMap=buildCFMap(type);
+  const rate=pool/n, cfMap=buildCFMap(type), annFactor=getAnnFactor(type);
   const raw=state[type].rows.reduce((s,r)=>{
-    const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital));
+    const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital,annFactor));
     return s+rate*(wOcc(ot)+wNOI(nt)+wCF(ct));
   },0);
   return Math.min(raw,pool);
@@ -1159,9 +1251,10 @@ function renderResults(){
     const ps=document.getElementById('pstart-'+type).value, pe=document.getElementById('pend-'+type).value;
     const period=ps&&pe?`${ps} to ${pe}`:'';
     const cfMap=buildCFMap(type), rows=state[type].rows, n=rows.length, rate=n>0?pool/n:0;
+    const annFactor=getAnnFactor(type);
     let raw=0,occE=0,noiE=0,cfE=0,mO=0,t1O=0,t2O=0,t3O=0,mN=0,t1N=0,t2N=0,t3N=0,mC=0,t1C=0,t2C=0,t3C=0;
     rows.forEach(r=>{
-      const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital));
+      const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital,annFactor));
       const ob=rate*wOcc(ot),nb=rate*wNOI(nt),cb=rate*wCF(ct);
       occE+=ob;noiE+=nb;cfE+=cb;raw+=ob+nb+cb;
       if(ot==='miss')mO++;else if(ot==='1')t1O++;else if(ot==='2')t2O++;else t3O++;
@@ -1320,12 +1413,24 @@ async function saveToSupabase(){
   setGhStatus('Saving…', 'info');
   try {
     const payload = buildPayload();
+    // Use POST with upsert preference so the row is created if it doesn't exist yet.
+    // PATCH on a non-existent row is a silent no-op in Supabase PostgREST.
+    const headers = {
+      ...sbHeaders(),
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
+    };
+    delete headers['Prefer']; // rebuild cleanly
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/${SB_TABLE}?id=eq.${SB_ROW_ID}`,
+      `${SUPABASE_URL}/rest/v1/${SB_TABLE}`,
       {
-        method: 'PATCH',
-        headers: sbHeaders(),
-        body: JSON.stringify({ payload, updated_at: new Date().toISOString() })
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ id: SB_ROW_ID, payload, updated_at: new Date().toISOString() })
       }
     );
     if(!res.ok){
@@ -1357,6 +1462,7 @@ function loadStateLocalFallback(){
 
 function resetToDefaults(){
   if (!confirm('Reset all data to defaults? This will clear all entered values and cannot be undone.')) return;
+  clearTimeout(saveTimer); // cancel any pending debounced save before overwriting
   localStorage.removeItem(STORAGE_KEY);
   state.nonpgo = {rows:[],groups:[]};
   state.pgo    = {rows:[],groups:[]};
@@ -1372,6 +1478,7 @@ function resetToDefaults(){
   initFromSeed();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
+  renderSyndicates();
   saveToSupabase();
 }
 
@@ -1407,7 +1514,8 @@ function renderSyndicates(){
     const totalCF = g.properties.reduce((s,r) => {
       return s + (parseFloat(getEffectiveCF(r))||0);
     }, 0);
-    const annualized = (!isNaN(k) && k!==0) ? (totalCF*2/k)*100 : null;
+    const annFactor = getAnnFactor('nonpgo'); // both tabs share the same period
+    const annualized = (!isNaN(k) && k!==0) ? (totalCF*annFactor/k)*100 : null;
     const tier = cfTierFromPct(annualized);
     const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
 
@@ -1498,6 +1606,12 @@ function rollToNextPeriod(){
   const ps = document.getElementById('pstart-nonpgo').value;
   const pe = document.getElementById('pend-nonpgo').value;
   if (!ps || !pe) { alert('Please set a period start and end before rolling forward.'); return; }
+  // Warn if the two tabs have different periods — the roll will sync them both to the same new dates.
+  const pgos = document.getElementById('pstart-pgo').value;
+  const pgoe = document.getElementById('pend-pgo').value;
+  if ((pgos && pgos !== ps) || (pgoe && pgoe !== pe)) {
+    if (!confirm('Warning: the PGO tab has a different period ('+pgos+' → '+pgoe+') than the Non-PGO tab ('+ps+' → '+pe+'). Rolling forward will set both tabs to the same new period. Continue?')) return;
+  }
 
   const [sy, sm] = ps.split('-').map(Number);
   const [ey, em] = pe.split('-').map(Number);
