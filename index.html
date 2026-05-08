@@ -66,6 +66,9 @@
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
   th{padding:8px 10px;text-align:left;color:var(--text3);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;}
   td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .col-sticky{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:2px 0 4px rgba(0,0,0,0.06);}
+  thead .col-sticky{background:var(--surface2);z-index:2;}
+  tr:hover td.col-sticky{background:#fafaf8;}
   tr:last-child td{border-bottom:none;}
   tr:hover td{background:#fafaf8;}
   table input,table select{width:100%;padding:4px 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-size:12.5px;font-family:'DM Sans',sans-serif;transition:border-color 0.15s;}
@@ -291,7 +294,7 @@
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th style="min-width:155px">Property name</th>
+          <th class="col-sticky" style="min-width:155px">Property name</th>
           <th style="min-width:48px">Units</th>
           <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
@@ -366,7 +369,7 @@
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th style="min-width:155px">Property name</th>
+          <th class="col-sticky" style="min-width:155px">Property name</th>
           <th style="min-width:48px">Units</th>
           <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
@@ -1152,7 +1155,7 @@ function renderTable(type){
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
     return`<tr>
-      <td><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
+      <td class="col-sticky"><input value="${esc(row.name)}" oninput="setRow('${type}',${row.id},'name',this.value)"></td>
       <td><input type="number" value="${row.units}" oninput="setRow('${type}',${row.id},'units',this.value)" style="width:48px"></td>
       <td>${hasMonthlyOcc
         ? `<div style="display:flex;align-items:center;gap:5px;padding:4px 7px">
