@@ -886,7 +886,8 @@ async function uploadFileToStorage(file, path){
   );
   if(!res.ok){
     const err = await res.json().catch(function(){ return {}; });
-    throw new Error(err.message || res.status);
+    console.error('[Storage upload failed]', res.status, JSON.stringify(err));
+    throw new Error(err.message || err.error || res.status);
   }
   return path;
 }
@@ -1154,7 +1155,7 @@ function renderTable(type){
       <td>${badge(nt)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
       <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
-      <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',adjCfVal,type,row.id,'adjCf','auto or override')}</td>
+      <td>${editCell('<span class="'+adjCfClass+'">'+(adjCfDisplay||'')+'</span>',adjCfVal,type,row.id,'adjCf','manual override')}</td>
       <td>${badge(ct)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${cbDisplay}</td>
       <td><select onchange="setRow('${type}',${row.id},'group',this.value)">${groupOpts}</select></td>
