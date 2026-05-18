@@ -965,21 +965,37 @@ function showOccDetail(rowId, type){
   document.getElementById('occ-detail-modal').style.display = 'flex';
 }
 
-// ─── Row warnings modal ───────────────────────────────────────────────────────
-function showRowWarnings(type, rowId){
-  const r = state[type].rows.find(r=>r.id===rowId);
-  if(!r) return;
+// ─── Row warnings ─────────────────────────────────────────────────────────────
+// Single source of truth for all row-level warnings — used by both the ⚠ icon
+// (in renderTable) and the warning modal (showRowWarnings).
+function getRowWarnings(type, rowId){
+  const r=state[type].rows.find(r=>r.id===rowId);
+  if(!r) return [];
+  const groupNames=state[type].groups.map(g=>g.name);
   const warns=[];
   if(!r.name||r.name.trim()==='') warns.push('Name is blank');
   const hasCF=r.cf!==''&&r.cf!==undefined&&r.cf!==null;
   const hasOcc=r.occ!==''&&r.occ!==undefined;
   const hasNOI=r.currentNoi!==''&&r.currentNoi!==undefined;
   if(!hasOcc&&!hasNOI&&!hasCF) warns.push('No data entered on any trigger');
-  if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null)) warns.push('LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.');
-  if(!r.group&&hasCF&&(r.capital===''||r.capital===undefined||r.capital===null||parseFloat(r.capital)===0)) warns.push('No unreturned capital set — the CF tier will always be Miss for this property.');
+  if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null))
+    warns.push('LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.');
+  if(!r.group&&hasCF&&(r.capital===''||r.capital===undefined||r.capital===null||parseFloat(r.capital)===0))
+    warns.push('No unreturned capital set — the CF tier will always be Miss for this property.');
+  if(r.group&&!groupNames.includes(r.group))
+    warns.push(`Syndication group "${r.group}" no longer exists — please re-assign`);
+  if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length)
+    r.belowNoiMissing.forEach(lbl=>warns.push(`"${lbl}" not found below NOI in the imported income statement`));
+  return warns;
+}
+
+function showRowWarnings(type, rowId){
+  const r=state[type].rows.find(r=>r.id===rowId);
+  if(!r) return;
+  const warns=getRowWarnings(type, rowId);
   if(!warns.length) return;
-  document.getElementById('row-warn-title').textContent = (r.name||'Unnamed property') + ' — Warnings';
-  document.getElementById('row-warn-list').innerHTML = warns.map(w=>
+  document.getElementById('row-warn-title').textContent=(r.name||'Unnamed property')+' — Warnings';
+  document.getElementById('row-warn-list').innerHTML=warns.map(w=>
     `<div style="display:flex;gap:10px;padding:10px 12px;background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius)">
       <span style="color:var(--amber);font-size:15px;flex-shrink:0">⚠</span>
       <span style="font-size:13px;color:var(--text);line-height:1.5">${w}</span>
@@ -1646,17 +1662,7 @@ function renderTable(type){
     const nbDisplay = nb>0 ? fmtD(nb,2) : (nt==='na' ? '<span style="color:var(--text3)">N/A</span>' : '<span style="color:var(--text3)">—</span>');
     const cbDisplay = cb>0 ? fmtD(cb,2) : '<span style="color:var(--text3)">—</span>';
     // ── Row-level warnings ─────────────────────────────────────────────────────
-    const rowWarns=[];
-    if(!row.name||row.name.trim()==='') rowWarns.push('Name is blank');
-    const hasCF=row.cf!==''&&row.cf!==undefined&&row.cf!==null;
-    const hasOcc=row.occ!==''&&row.occ!==undefined;
-    const hasNOI=row.currentNoi!==''&&row.currentNoi!==undefined;
-    if(!hasOcc&&!hasNOI&&!hasCF) rowWarns.push('No data entered on any trigger');
-    if(row.loc&&hasCF&&(row.capexCredit===''||row.capexCredit===undefined||row.capexCredit===null)) rowWarns.push('LOC property — CapEx credit not set');
-    if(!row.group&&hasCF&&(row.capital===''||row.capital===undefined||row.capital===null||parseFloat(row.capital)===0)) rowWarns.push('No unreturned capital — CF tier will always Miss');
-    if(row.group && !groupNames.includes(row.group)) rowWarns.push(`Syndication group "${row.group}" no longer exists — please re-assign`);
-    if(row.imported && row.belowNoiMissing && row.belowNoiMissing.length)
-      row.belowNoiMissing.forEach(lbl=>rowWarns.push(`"${lbl}" not found below NOI in the imported income statement`));
+    const rowWarns=getRowWarnings(type, row.id);
     const warnIcon=rowWarns.length
       ? `<span onclick="showRowWarnings('${type}',${row.id})" style="color:var(--amber);font-size:13px;cursor:pointer;flex-shrink:0;user-select:none" aria-label="Warnings">⚠</span>`
       : '';
