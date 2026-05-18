@@ -295,6 +295,11 @@
             placeholder="0">
         </div>
       </div>
+      <!-- Below-NOI line item checks — shown only when patterns are configured -->
+      <div id="modal-below-noi-section" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Below-NOI line item checks</div>
+        <div id="modal-below-noi-list"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -309,6 +314,7 @@
     <button class="tab" onclick="switchTab('pgo')">PGO properties</button>
     <button class="tab" onclick="switchTab('syndicates')">Syndication groups</button>
     <button class="tab" onclick="switchTab('results')">Results summary</button>
+    <button class="tab" onclick="switchTab('settings')">⚙ Settings</button>
   </div>
 
   <!-- NON-PGO -->
@@ -473,6 +479,20 @@
     <div class="metrics-grid" id="grand-metrics"></div>
     <div id="results-sections"></div>
   </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Below-NOI line item checks</span>
+          <span style="font-size:12px;color:var(--text3);margin-left:12px">Defined what to look for after the NOI line in every imported income statement</span>
+        </div>
+        <button class="btn-add" onclick="addBelowNoiCheck()">+ Add category</button>
+      </div>
+      <div id="settings-below-noi" style="padding:20px"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -558,13 +578,23 @@ const ICON_UPLOAD   = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor
 const ICON_CHECKMARK= '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="2,9 6,13 14,4"/></svg>';
 
 // ─── state ────────────────────────────────────────────────────────────────────
-const state = {nonpgo:{rows:[],groups:[]},pgo:{rows:[],groups:[]}};
-let rowId=0, groupId=0, pendingImport=null;
+const state = {
+  nonpgo:{rows:[],groups:[]},
+  pgo:{rows:[],groups:[]},
+  settings:{
+    belowNoiChecks:[
+      {id:1,label:'Asset management fee',patterns:[]},
+      {id:2,label:'Debt service',patterns:[]},
+      {id:3,label:'Capital expenses',patterns:[]}
+    ]
+  }
+};
+let rowId=0, groupId=0, checkId=3, pendingImport=null;
 
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[]}));
   });
 }
 
@@ -1145,6 +1175,12 @@ function parseStatement(file, type, rid){
 
       const capexLines=[];
       let inCapexSection=false;
+      // Below-NOI line item detection
+      let passedNOI=false;
+      const checks=state.settings&&state.settings.belowNoiChecks||[];
+      const belowNoiFound={};
+      checks.forEach(c=>{belowNoiFound[c.id]=false;});
+
       for(let i=headerRowIdx+1;i<data.length;i++){
         const row=data[i];
         const label=String(row[0]||'').trim().toLowerCase();
@@ -1158,10 +1194,17 @@ function parseStatement(file, type, rid){
                       label==='net income / (loss)' ||
                       (label.startsWith('net income') && label.length < 30);
 
-        if((isNOI && noi===null)||(isNI && cf===null)){
-          const val=sumRow(row);
-          if(isNOI && noi===null) noi=val;
-          if(isNI  && cf===null)  cf=val;
+        if(isNOI && noi===null){ noi=sumRow(row); passedNOI=true; }
+        if(isNI  && cf===null)   cf=sumRow(row);
+
+        // Check each configured category against rows below the NOI line
+        if(passedNOI){
+          checks.forEach(c=>{
+            if(!belowNoiFound[c.id] && c.patterns.length){
+              if(c.patterns.some(p=>p.trim()&&label.includes(p.trim().toLowerCase())))
+                belowNoiFound[c.id]=true;
+            }
+          });
         }
 
         // CapEx section header: keyword match with no values → enter collect mode
@@ -1192,8 +1235,12 @@ function parseStatement(file, type, rid){
         }
       }
       const capexTotal = capexLines.length ? capexLines.reduce((s,l)=>s+Math.abs(l.amount),0) : 0;
+      // Categories that had patterns configured but weren't found below NOI
+      const belowNoiMissing=checks.filter(c=>c.patterns.length>0&&!belowNoiFound[c.id]);
+      // All categories with patterns (for display in modal)
+      const belowNoiResults=checks.filter(c=>c.patterns.length>0).map(c=>({...c,found:belowNoiFound[c.id]||false}));
 
-      pendingImport={type,rowId:rid,noi,cf,capexLines,capexTotal,propName,platform,periodLabel,file};
+      pendingImport={type,rowId:rid,noi,cf,capexLines,capexTotal,propName,platform,periodLabel,file,belowNoiMissing,belowNoiResults};
       showModal();
     } catch(err){
       alert('Could not read the file. Please make sure it is a valid Appfolio or Buildium Excel export.\n\n'+err.message);
@@ -1274,6 +1321,26 @@ function showModal(){
     capexSection.style.display='none';
   }
 
+  // ── Below-NOI checks ──────────────────────────────────────────────────────
+  const belowNoiSection=document.getElementById('modal-below-noi-section');
+  const belowNoiList=document.getElementById('modal-below-noi-list');
+  const belowNoiResults=pendingImport.belowNoiResults||[];
+  if(belowNoiResults.length){
+    belowNoiList.innerHTML=belowNoiResults.map(c=>{
+      const color=c.found?'#15803d':'var(--amber)';
+      const icon=c.found?'✓':'⚠';
+      const note=c.found?'found':'not found in statement';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px">
+        <span style="color:${color};font-weight:600;width:14px;flex-shrink:0">${icon}</span>
+        <span style="font-weight:500">${esc(c.label)}</span>
+        <span style="color:${color};font-style:italic">${note}</span>
+      </div>`;
+    }).join('');
+    belowNoiSection.style.display='';
+  } else {
+    belowNoiSection.style.display='none';
+  }
+
   document.getElementById('import-modal').style.display='flex';
 }
 
@@ -1289,6 +1356,8 @@ async function applyImport(){
   if(r){
     if(noi!==null) r.currentNoi=noi;
     if(cf!==null)  r.cf=cf;
+    // Store which below-NOI categories were missing
+    r.belowNoiMissing = (pendingImport.belowNoiMissing||[]).map(c=>c.label);
     // Apply CapEx credit for LOC properties
     if(r.loc){
       const capexInput=document.getElementById('modal-capex-input');
@@ -1315,14 +1384,15 @@ async function applyImport(){
 
 // ─── tab ──────────────────────────────────────────────────────────────────────
 function switchTab(t){
-  ['nonpgo','pgo','syndicates','results'].forEach(x=>document.getElementById('tab-'+x).style.display=x===t?'':'none');
-  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['nonpgo','pgo','syndicates','results'][i]===t));
+  ['nonpgo','pgo','syndicates','results','settings'].forEach(x=>document.getElementById('tab-'+x).style.display=x===t?'':'none');
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['nonpgo','pgo','syndicates','results','settings'][i]===t));
   if(t==='results')renderResults();
   if(t==='syndicates')renderSyndicates();
+  if(t==='settings')renderSettings();
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:''});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[]});saveState();renderTable(type);}
 function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||r.status==='active');if(active.length===0)return;const last=active[active.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows=state[type].rows.filter(r=>r.id!==last.id);saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1453,6 +1523,65 @@ function addArchivedRow(type,status){
   renderArchivedSection(type);
 }
 
+// ─── settings ─────────────────────────────────────────────────────────────────
+function renderSettings(){
+  const cont=document.getElementById('settings-below-noi');
+  if(!cont)return;
+  const checks=state.settings.belowNoiChecks;
+  if(!checks.length){cont.innerHTML='<p class="empty-state">No categories configured — click "+ Add category" to get started.</p>';return;}
+  cont.innerHTML=checks.map(c=>{
+    const pInputs=c.patterns.map((p,pi)=>`
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <input value="${esc(p)}" onchange="updatePattern(${c.id},${pi},this.value)"
+          style="flex:1;padding:5px 9px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text)"
+          placeholder="e.g. management fee">
+        <button class="del-btn" onclick="removePattern(${c.id},${pi})">×</button>
+      </div>`).join('');
+    return `<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <input value="${esc(c.label)}" onchange="updateCheckLabel(${c.id},this.value)"
+          style="font-weight:500;font-size:14px;padding:5px 9px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:280px"
+          placeholder="Category name">
+        <button class="btn-remove" onclick="removeBelowNoiCheck(${c.id})" style="font-size:11px;padding:3px 12px">Remove</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">
+        Label patterns — any row whose text contains one of these (case-insensitive) counts as found
+      </div>
+      ${pInputs||'<p style="font-size:12px;color:var(--text3);font-style:italic;margin-bottom:8px">No patterns yet — add one below.</p>'}
+      <button class="btn-add" onclick="addPattern(${c.id})" style="font-size:11px;padding:3px 10px;margin-top:2px">+ Add pattern</button>
+    </div>`;
+  }).join('');
+}
+function addBelowNoiCheck(){
+  state.settings.belowNoiChecks.push({id:++checkId,label:'New category',patterns:[]});
+  saveState();renderSettings();
+}
+function removeBelowNoiCheck(id){
+  if(!confirm('Remove this category?'))return;
+  state.settings.belowNoiChecks=state.settings.belowNoiChecks.filter(c=>c.id!==id);
+  saveState();renderSettings();
+}
+function updateCheckLabel(id,val){
+  const c=state.settings.belowNoiChecks.find(c=>c.id===id);
+  if(c){c.label=val;saveState();}
+}
+function addPattern(cid){
+  const c=state.settings.belowNoiChecks.find(c=>c.id===cid);
+  if(!c)return;
+  c.patterns.push('');
+  saveState();renderSettings();
+}
+function removePattern(cid,pi){
+  const c=state.settings.belowNoiChecks.find(c=>c.id===cid);
+  if(!c)return;
+  c.patterns.splice(pi,1);
+  saveState();renderSettings();
+}
+function updatePattern(cid,pi,val){
+  const c=state.settings.belowNoiChecks.find(c=>c.id===cid);
+  if(c){c.patterns[pi]=val;saveState();}
+}
+
 // ─── render table ─────────────────────────────────────────────────────────────
 function renderTable(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
@@ -1526,6 +1655,8 @@ function renderTable(type){
     if(row.loc&&hasCF&&(row.capexCredit===''||row.capexCredit===undefined||row.capexCredit===null)) rowWarns.push('LOC property — CapEx credit not set');
     if(!row.group&&hasCF&&(row.capital===''||row.capital===undefined||row.capital===null||parseFloat(row.capital)===0)) rowWarns.push('No unreturned capital — CF tier will always Miss');
     if(row.group && !groupNames.includes(row.group)) rowWarns.push(`Syndication group "${row.group}" no longer exists — please re-assign`);
+    if(row.imported && row.belowNoiMissing && row.belowNoiMissing.length)
+      row.belowNoiMissing.forEach(lbl=>rowWarns.push(`"${lbl}" not found below NOI in the imported income statement`));
     const warnIcon=rowWarns.length
       ? `<span onclick="showRowWarnings('${type}',${row.id})" style="color:var(--amber);font-size:13px;cursor:pointer;flex-shrink:0;user-select:none" aria-label="Warnings">⚠</span>`
       : '';
@@ -1751,12 +1882,19 @@ function applyPayload(payload){
   if(!payload.state || !payload.state.nonpgo || !payload.state.pgo) return false;
   state.nonpgo = payload.state.nonpgo;
   state.pgo    = payload.state.pgo;
+  // Restore settings (with fallback for old saves)
+  if(payload.state.settings) {
+    state.settings = payload.state.settings;
+    if(state.settings.belowNoiChecks && state.settings.belowNoiChecks.length)
+      checkId = Math.max(checkId, ...state.settings.belowNoiChecks.map(c=>c.id));
+  }
   // Backfill fields added after initial save so old data loads cleanly
   ['nonpgo','pgo'].forEach(type=>{
     state[type].rows.forEach(r=>{
-      if(!r.status)      r.status      = 'active';
-      if(!r.acquiredDate) r.acquiredDate = '';
-      if(!r.soldDate)    r.soldDate    = '';
+      if(!r.status)           r.status          = 'active';
+      if(!r.acquiredDate)     r.acquiredDate     = '';
+      if(!r.soldDate)         r.soldDate         = '';
+      if(!r.belowNoiMissing)  r.belowNoiMissing  = [];
     });
   });
   rowId   = payload.rowId   || 0;
