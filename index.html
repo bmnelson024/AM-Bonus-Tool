@@ -1586,13 +1586,15 @@ function renderTable(type){
           ${row.notes ? '📝' : '+'}
         </button>
       </td>
-      <td style="white-space:nowrap;display:flex;align-items:center;gap:3px;padding:5px 6px">
-        <select class="row-action-sel" title="Archive this property" onchange="handleRowStatus('${type}',${row.id},this.value);this.value=''">
-          <option value="">⋯</option>
-          <option value="ineligible">Mark as ineligible</option>
-          <option value="sold">Mark as sold</option>
-        </select>
-        <button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button>
+      <td style="white-space:nowrap">
+        <div style="display:inline-flex;align-items:center;gap:3px">
+          <select class="row-action-sel" title="Archive this property" onchange="handleRowStatus('${type}',${row.id},this.value);this.value=''">
+            <option value="">⋯</option>
+            <option value="ineligible">Mark as ineligible</option>
+            <option value="sold">Mark as sold</option>
+          </select>
+          <button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button>
+        </div>
       </td>
     </tr>`;
   });
