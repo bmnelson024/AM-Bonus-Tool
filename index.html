@@ -100,6 +100,9 @@
   .name-missing input{border-color:#d4a017!important;background:#fffbf0!important;}
   .dl-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:5px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all 0.15s;flex-shrink:0;}
   .dl-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
+  .row-action-sel{padding:2px 4px;border:1px solid var(--border2);border-radius:4px;background:transparent;color:var(--text3);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;width:auto!important;}
+  .row-action-sel:hover{background:var(--bg);}
+  .archived-eligible-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:#dcfce7;color:#14532d;border:1px solid #4ade80;margin-left:6px;}
 
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}
@@ -374,6 +377,7 @@
         <tbody id="body-nonpgo"></tbody></table>
       </div>
     </div>
+    <div id="archived-nonpgo"></div>
     <div class="card">
       <div class="card-header">
         <span class="card-title">Syndication groups (pooled cash flow)</span>
@@ -449,6 +453,7 @@
         <tbody id="body-pgo"></tbody></table>
       </div>
     </div>
+    <div id="archived-pgo"></div>
     <div class="card">
       <div class="card-header">
         <span class="card-title">Syndication groups (pooled cash flow)</span>
@@ -559,7 +564,7 @@ let rowId=0, groupId=0, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:''}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:''}));
   });
 }
 
@@ -620,7 +625,7 @@ function buildCFMap(type){
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     if(!isNaN(k)&&k!==0){
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
-        return sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0);
+        return sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0);
       },0);
       map[g.name]=cfTierFromPct((total*annFactor/k)*100);
     } else map[g.name]='miss';
@@ -1317,8 +1322,8 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:''});saveState();renderTable(type);}
-function removeLastRow(type){if(state[type].rows.length===0)return;const last=state[type].rows[state[type].rows.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows.pop();saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:''});saveState();renderTable(type);}
+function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||r.status==='active');if(active.length===0)return;const last=active[active.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows=state[type].rows.filter(r=>r.id!==last.id);saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
 function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
@@ -1327,10 +1332,132 @@ function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id)
 function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;saveState();renderGroups(type);renderTable(type);}}
 function setLOC(type,id,checked){const r=state[type].rows.find(r=>r.id===id);if(!r)return;r.loc=checked;if(!checked)r.capexCredit='';saveState();renderTable(type);}
 
+// ─── archive / recently acquired / sold ───────────────────────────────────────
+// Cycle boundaries are April and October (6-month cycles).
+// Eligible from = start of the cycle containing the acquisition month + 12 months (2 full cycles).
+function eligibleFromDate(acq){
+  if(!acq) return '—';
+  const parts=acq.split('-').map(Number);
+  if(parts.length<2||isNaN(parts[0])||isNaN(parts[1])) return '—';
+  const [y,m]=parts;
+  let csm,csy;
+  if(m>=4&&m<=9){csm=4;csy=y;}
+  else if(m>=10){csm=10;csy=y;}
+  else{csm=10;csy=y-1;} // Jan–Mar fall in prior Oct cycle
+  return `${csy+1}-${String(csm).padStart(2,'0')}`;
+}
+
+function handleRowStatus(type,id,status){
+  const r=state[type].rows.find(r=>r.id===id);
+  if(!r)return;
+  r.status=status;
+  saveState();
+  renderTable(type);
+}
+
+function restoreRow(type,id){
+  const r=state[type].rows.find(r=>r.id===id);
+  if(!r)return;
+  r.status='active';
+  saveState();
+  renderTable(type);
+}
+
+function setArchivedField(type,id,field,val){
+  const r=state[type].rows.find(r=>r.id===id);
+  if(!r)return;
+  r[field]=val;
+  saveState();
+  renderArchivedSection(type);
+}
+
+function renderArchivedSection(type){
+  const cont=document.getElementById('archived-'+type);
+  if(!cont) return;
+  const ps=document.getElementById('pstart-'+type).value;
+  const ineligible=state[type].rows.filter(r=>r.status==='ineligible');
+  const sold=state[type].rows.filter(r=>r.status==='sold');
+  let html='';
+
+  if(ineligible.length){
+    const iRows=ineligible.map(r=>{
+      const ef=eligibleFromDate(r.acquiredDate);
+      const nowEligible=ef!=='—'&&ps&&ef<=ps;
+      const eligibleLabel=ef==='—'
+        ? '<span style="color:var(--text3);font-style:italic">enter date</span>'
+        : `<span style="font-family:\'DM Mono\',monospace;font-size:12px">${ef}</span>${nowEligible?'<span class="archived-eligible-badge">✓ Eligible now</span>':''}`;
+      return `<tr>
+        <td style="font-weight:500;padding-left:16px">${esc(r.name||'(unnamed)')}</td>
+        <td><input type="month" value="${r.acquiredDate||''}" onchange="setArchivedField('${type}',${r.id},'acquiredDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
+        <td>${eligibleLabel}</td>
+        <td><button class="btn-add" onclick="restoreRow('${type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap">→ Move to active</button></td>
+        <td><button class="del-btn" onclick="removeRow('${type}',${r.id})">×</button></td>
+      </tr>`;
+    }).join('');
+    html+=`<div class="card" style="border-color:#d4a01755;margin-bottom:16px">
+      <div class="card-header" style="background:#fffbf0;border-color:#d4a01744">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-title" style="color:var(--amber)">Recently acquired — not yet eligible (${ineligible.length})</span>
+          <span style="font-size:11px;color:var(--text3)">Must complete 2 full cycles from acquisition date before earning bonus</span>
+        </div>
+        <button class="btn-add" onclick="addArchivedRow('${type}','ineligible')" style="font-size:11px;padding:3px 10px">+ Add property</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th style="min-width:180px">Property name</th>
+          <th style="min-width:150px">Acquisition date</th>
+          <th style="min-width:190px">Eligible from</th>
+          <th style="min-width:130px"></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${iRows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  if(sold.length){
+    const sRows=sold.map(r=>{
+      return `<tr>
+        <td style="font-weight:500;padding-left:16px">${esc(r.name||'(unnamed)')}</td>
+        <td><input type="month" value="${r.soldDate||''}" onchange="setArchivedField('${type}',${r.id},'soldDate',this.value)" placeholder="optional" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
+        <td><button class="btn-add" onclick="restoreRow('${type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap">→ Move to active</button></td>
+        <td><button class="del-btn" onclick="removeRow('${type}',${r.id})">×</button></td>
+      </tr>`;
+    }).join('');
+    html+=`<div class="card" style="border-color:#ccc9b855;margin-bottom:16px">
+      <div class="card-header" style="background:var(--surface2)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="card-title" style="color:var(--text3)">Sold / removed (${sold.length})</span>
+          <span style="font-size:11px;color:var(--text3)">Excluded from bonus calculation</span>
+        </div>
+        <button class="btn-add" onclick="addArchivedRow('${type}','sold')" style="font-size:11px;padding:3px 10px">+ Add property</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th style="min-width:180px">Property name</th>
+          <th style="min-width:150px">Date sold / removed</th>
+          <th style="min-width:130px"></th>
+          <th></th>
+        </tr></thead>
+        <tbody>${sRows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
+  cont.innerHTML=html;
+}
+
+function addArchivedRow(type,status){
+  state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:''});
+  saveState();
+  renderArchivedSection(type);
+}
+
 // ─── render table ─────────────────────────────────────────────────────────────
 function renderTable(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
-  const n=state[type].rows.length, rate=n>0?pool/n:0;
+  const activeRows=state[type].rows.filter(r=>!r.status||r.status==='active');
+  const n=activeRows.length, rate=n>0?pool/n:0;
   const cfMap=buildCFMap(type);
   const annFactor=getAnnFactor(type);
   const groupNames=state[type].groups.map(g=>g.name);
@@ -1353,9 +1480,9 @@ function renderTable(type){
   const rmBtn=document.getElementById('btn-remove-'+type);
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
-  if(n===0){body.innerHTML=`<tr><td colspan="22" class="empty-state">No properties — click "+ Add property".</td></tr>`;renderGroups(type);return;}
+  if(n===0){body.innerHTML=`<tr><td colspan="22" class="empty-state">No active properties — click "+ Add property".</td></tr>`;renderGroups(type);renderArchivedSection(type);return;}
   let totalBonus=0;
-  const rows=state[type].rows.map(row=>{
+  const rows=activeRows.map(row=>{
     const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
     const effectiveCF=getEffectiveCF(row);
     const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital,annFactor));
@@ -1459,13 +1586,21 @@ function renderTable(type){
           ${row.notes ? '📝' : '+'}
         </button>
       </td>
-      <td><button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button></td>
+      <td style="white-space:nowrap;display:flex;align-items:center;gap:3px;padding:5px 6px">
+        <select class="row-action-sel" title="Archive this property" onchange="handleRowStatus('${type}',${row.id},this.value);this.value=''">
+          <option value="">⋯</option>
+          <option value="ineligible">Mark as ineligible</option>
+          <option value="sold">Mark as sold</option>
+        </select>
+        <button class="del-btn" onclick="removeRow('${type}',${row.id})">×</button>
+      </td>
     </tr>`;
   });
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
   rows.push(`<tr class="total-row-tbl"><td colspan="19" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td><td></td></tr>`);
   body.innerHTML=rows.join('');
   renderGroups(type);
+  renderArchivedSection(type);
 }
 
 // ─── render groups ────────────────────────────────────────────────────────────
@@ -1477,10 +1612,10 @@ function renderGroups(type){
   ['nonpgo','pgo'].forEach(t=>state[t].groups.forEach(g=>{if(!allGroupCapital[g.name]&&g.capital)allGroupCapital[g.name]=g.capital;}));
   const annFactor=getAnnFactor(type);
   cont.innerHTML=state[type].groups.map(g=>{
-    // Sum CF across BOTH tabs for this group name to match buildCFMap logic
-    const totalCF=['nonpgo','pgo'].reduce((sum,t)=>sum+state[t].rows.filter(r=>r.group===g.name).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0),0);
-    // Display only properties in THIS tab for the panel list
-    const props=state[type].rows.filter(r=>r.group===g.name);
+    // Sum CF across BOTH tabs for this group name to match buildCFMap logic (active only)
+    const totalCF=['nonpgo','pgo'].reduce((sum,t)=>sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0),0);
+    // Display only active properties in THIS tab for the panel list
+    const props=state[type].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active'));
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     const pct=(!isNaN(k)&&k!==0)?(totalCF*annFactor/k*100):null;
     const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
@@ -1614,6 +1749,14 @@ function applyPayload(payload){
   if(!payload.state || !payload.state.nonpgo || !payload.state.pgo) return false;
   state.nonpgo = payload.state.nonpgo;
   state.pgo    = payload.state.pgo;
+  // Backfill fields added after initial save so old data loads cleanly
+  ['nonpgo','pgo'].forEach(type=>{
+    state[type].rows.forEach(r=>{
+      if(!r.status)      r.status      = 'active';
+      if(!r.acquiredDate) r.acquiredDate = '';
+      if(!r.soldDate)    r.soldDate    = '';
+    });
+  });
   rowId   = payload.rowId   || 0;
   groupId = payload.groupId || 0;
   if(payload.pools){
@@ -1762,7 +1905,7 @@ function renderSyndicates(){
       }
     });
     state[type].rows.forEach(r => {
-      if (r.group && allGroups[r.group]) {
+      if (r.group && allGroups[r.group] && (!r.status||r.status==='active')) {
         allGroups[r.group].properties.push({ ...r, tab: type });
       }
     });
@@ -1923,6 +2066,8 @@ renderTable('nonpgo');
 renderTable('pgo');
 renderGroups('nonpgo');
 renderGroups('pgo');
+renderArchivedSection('nonpgo');
+renderArchivedSection('pgo');
 
 // Async load from Supabase (overrides local fallback if successful)
 loadFromSupabase().then(ok => {
@@ -1931,6 +2076,8 @@ loadFromSupabase().then(ok => {
     renderTable('pgo');
     renderGroups('nonpgo');
     renderGroups('pgo');
+    renderArchivedSection('nonpgo');
+    renderArchivedSection('pgo');
     renderSyndicates();
   }
 });
