@@ -1622,7 +1622,7 @@ function renderGroups(type){
     const pct=(!isNaN(k)&&k!==0)?(totalCF*annFactor/k*100):null;
     const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
     return`<div class="group-row"><div class="group-head">
-      <input class="g-name-inp" value="${g.name}" oninput="setGroupName('${type}',${g.id},this.value)">
+      <input class="g-name-inp" value="${g.name}" onchange="setGroupName('${type}',${g.id},this.value)">
       <span style="font-size:12px;color:var(--text3)">Unreturned capital:</span>
       <input class="g-cap-inp" type="text" value="${g.capital!==''?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="$0" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const v=parseFloat(this.value.replace(/[^0-9.]/g,''))||0;setGroupCap('${type}',${g.id},v);this.value=v?'$'+v.toLocaleString('en-US'):'';">
       <div class="group-result"><span style="color:var(--text3)">${fmt(totalCF)} CF · ${pct!==null?fmtP(pct)+' ann.':'—'}</span>${badge(cfTierFromPct(pct))}${(isNaN(k)||k===0)?'<span class="warn-pill" style="margin-left:6px">⚠ no capital set</span>':''}</div>
