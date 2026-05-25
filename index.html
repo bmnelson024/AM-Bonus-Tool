@@ -229,12 +229,19 @@
 
 <!-- Row Warnings Modal -->
 <div class="modal-overlay" id="row-warn-modal" style="display:none" onclick="if(event.target===this)document.getElementById('row-warn-modal').style.display='none'">
-  <div class="modal" style="width:420px">
-    <h3 id="row-warn-title">Warnings</h3>
-    <div class="modal-sub">Resolve these issues to ensure accurate bonus calculations.</div>
-    <div id="row-warn-list" style="margin:16px 0;display:flex;flex-direction:column;gap:8px"></div>
-    <div class="modal-actions">
-      <button class="btn-apply" onclick="document.getElementById('row-warn-modal').style.display='none'">Got it</button>
+  <div class="modal" style="width:460px">
+    <div class="modal-header">
+      <h3 id="row-warn-title">Warnings</h3>
+      <div class="modal-sub">Use × to dismiss individual warnings, or dismiss all at once.</div>
+    </div>
+    <div class="modal-body">
+      <div id="row-warn-list" style="margin:12px 0;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-actions">
+        <button class="btn-cancel" id="row-warn-dismiss-all-btn" onclick="dismissAllWarnings(_rowWarnType,_rowWarnId)">Dismiss all</button>
+        <button class="btn-apply" onclick="document.getElementById('row-warn-modal').style.display='none'">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -616,7 +623,7 @@ let rowId=0, groupId=0, checkId=3, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],dismissedWarnings:[]}));
   });
 }
 
@@ -988,71 +995,75 @@ function showOccDetail(rowId, type){
 }
 
 // ─── Row warnings ─────────────────────────────────────────────────────────────
-// Single source of truth for all row-level warnings — used by both the ⚠ icon
-// (in renderTable) and the warning modal (showRowWarnings).
+// Returns [{key, msg}] — filtered by r.dismissedWarnings.
+// key is a stable identifier used to dismiss individual warnings.
 function getRowWarnings(type, rowId){
   const r=state[type].rows.find(r=>r.id===rowId);
   if(!r) return [];
   const groupNames=state[type].groups.map(g=>g.name);
-  const warns=[];
-  if(!r.name||r.name.trim()==='') warns.push('Name is blank');
+  const dismissed=new Set(r.dismissedWarnings||[]);
+  const all=[];
+  if(!r.name||r.name.trim()==='')
+    all.push({key:'name-blank', msg:'Name is blank'});
   const hasCF=r.cf!==''&&r.cf!==undefined&&r.cf!==null;
   const hasOcc=r.occ!==''&&r.occ!==undefined;
   const hasNOI=r.currentNoi!==''&&r.currentNoi!==undefined;
-  if(!hasOcc&&!hasNOI&&!hasCF) warns.push('No data entered on any trigger');
+  if(!hasOcc&&!hasNOI&&!hasCF)
+    all.push({key:'no-data', msg:'No data entered on any trigger'});
   if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null))
-    warns.push('LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.');
+    all.push({key:'loc-capex', msg:'LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.'});
   if(!r.group&&hasCF&&(r.capital===''||r.capital===undefined||r.capital===null||parseFloat(r.capital)===0))
-    warns.push('No unreturned capital set — the CF tier will always be Miss for this property.');
+    all.push({key:'no-capital', msg:'No unreturned capital set — the CF tier will always be Miss for this property.'});
   if(r.group&&!groupNames.includes(r.group))
-    warns.push(`Syndication group "${r.group}" no longer exists — please re-assign`);
-  if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length){
-    const ackd=r.acknowledgedChecks||[];
-    r.belowNoiMissing.filter(lbl=>!ackd.includes(lbl)).forEach(lbl=>warns.push(`"${lbl}" not found below NOI in the imported income statement`));
-  }
-  return warns;
+    all.push({key:'group-missing', msg:`Syndication group "${r.group}" no longer exists — please re-assign`});
+  if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length)
+    r.belowNoiMissing.forEach(lbl=>all.push({key:`below-noi:${lbl}`, msg:`"${lbl}" not found below NOI in the imported income statement`}));
+  return all.filter(w=>!dismissed.has(w.key));
 }
 
+let _rowWarnType='', _rowWarnId=0;
 function showRowWarnings(type, rowId){
   const r=state[type].rows.find(r=>r.id===rowId);
   if(!r) return;
   const warns=getRowWarnings(type, rowId);
   if(!warns.length) return;
+  _rowWarnType=type; _rowWarnId=rowId;
   document.getElementById('row-warn-title').textContent=(r.name||'Unnamed property')+' — Warnings';
-  const ackd=r.acknowledgedChecks||[];
-  const activeBelow=(r.belowNoiMissing||[]).filter(lbl=>!ackd.includes(lbl));
-  document.getElementById('row-warn-list').innerHTML=warns.map(w=>{
-    const matchedLabel=activeBelow.find(lbl=>w.includes(`"${lbl}"`));
-    const dismissBtn=matchedLabel
-      ?`<button onclick="acknowledgeCheck('${type}',${rowId},${JSON.stringify(matchedLabel)})"
-          style="white-space:nowrap;flex-shrink:0;align-self:center;padding:3px 10px;font-size:11px;border:1px solid #d4a017;border-radius:4px;background:transparent;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s"
-          onmouseover="this.style.background='var(--amber-light)'" onmouseout="this.style.background='transparent'">
-          Mark as N/A
-        </button>`
-      :'';
-    return `<div style="display:flex;gap:10px;padding:10px 12px;background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);align-items:flex-start">
+  document.getElementById('row-warn-list').innerHTML=warns.map(w=>
+    `<div style="display:flex;gap:10px;padding:10px 12px;background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);align-items:flex-start">
       <span style="color:var(--amber);font-size:15px;flex-shrink:0">⚠</span>
-      <span style="font-size:13px;color:var(--text);line-height:1.5;flex:1">${w}</span>
-      ${dismissBtn}
-    </div>`;
-  }).join('');
+      <span style="font-size:13px;color:var(--text);line-height:1.5;flex:1">${w.msg}</span>
+      <button onclick="dismissWarning('${type}',${rowId},${JSON.stringify(w.key)})"
+        title="Dismiss this warning"
+        style="white-space:nowrap;flex-shrink:0;align-self:center;width:22px;height:22px;border:1px solid #d4a01788;border-radius:4px;background:transparent;color:var(--amber);cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;transition:all 0.15s"
+        onmouseover="this.style.background='#d4a01722'" onmouseout="this.style.background='transparent'">×</button>
+    </div>`
+  ).join('');
   document.getElementById('row-warn-modal').style.display='flex';
 }
 
-function acknowledgeCheck(type, rowId, label){
+function dismissWarning(type, rowId, key){
   const r=state[type].rows.find(r=>r.id===rowId);
   if(!r) return;
-  if(!r.acknowledgedChecks) r.acknowledgedChecks=[];
-  if(!r.acknowledgedChecks.includes(label)) r.acknowledgedChecks.push(label);
+  if(!r.dismissedWarnings) r.dismissedWarnings=[];
+  if(!r.dismissedWarnings.includes(key)) r.dismissedWarnings.push(key);
   saveState();
   renderTable(type);
-  // Refresh modal — close it if no warnings remain
   const remaining=getRowWarnings(type, rowId);
-  if(!remaining.length){
-    document.getElementById('row-warn-modal').style.display='none';
-  } else {
-    showRowWarnings(type, rowId);
-  }
+  if(!remaining.length) document.getElementById('row-warn-modal').style.display='none';
+  else showRowWarnings(type, rowId);
+}
+
+function dismissAllWarnings(type, rowId){
+  const r=state[type].rows.find(r=>r.id===rowId);
+  if(!r) return;
+  const warns=getRowWarnings(type, rowId);
+  if(!warns.length) return;
+  if(!r.dismissedWarnings) r.dismissedWarnings=[];
+  warns.forEach(w=>{if(!r.dismissedWarnings.includes(w.key)) r.dismissedWarnings.push(w.key);});
+  saveState();
+  renderTable(type);
+  document.getElementById('row-warn-modal').style.display='none';
 }
 
 // ─── Notes modal ─────────────────────────────────────────────────────────────
@@ -1463,7 +1474,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],dismissedWarnings:[]});saveState();renderTable(type);}
 function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||r.status==='active');if(active.length===0)return;const last=active[active.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows=state[type].rows.filter(r=>r.id!==last.id);saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);renderWaitList();renderDisposedTab();updateWaitListBadge();updateDisposedBadge();}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1529,7 +1540,7 @@ function renderArchivedSection(type){
 }
 
 function addArchivedRow(type,status){
-  state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]});
+  state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:'',belowNoiMissing:[],dismissedWarnings:[]});
   saveState();
   if(status==='ineligible'){renderWaitList();updateWaitListBadge();}
   else renderArchivedSection(type);
@@ -2062,7 +2073,11 @@ function applyPayload(payload){
       if(!r.acquiredDate)        r.acquiredDate        = '';
       if(!r.soldDate)            r.soldDate            = '';
       if(!r.belowNoiMissing)     r.belowNoiMissing     = [];
-      if(!r.acknowledgedChecks)  r.acknowledgedChecks  = [];
+      // Migrate old acknowledgedChecks → dismissedWarnings
+      if(!r.dismissedWarnings){
+        r.dismissedWarnings = (r.acknowledgedChecks||[]).map(lbl=>`below-noi:${lbl}`);
+      }
+      delete r.acknowledgedChecks;
     });
   });
   rowId   = payload.rowId   || 0;
