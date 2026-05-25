@@ -369,7 +369,7 @@
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th class="col-sticky" style="min-width:155px">Property name</th>
+          <th class="col-sticky" style="min-width:200px">Property name</th>
           <th style="min-width:48px">Units</th>
           <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
@@ -445,7 +445,7 @@
       </div>
       <div class="tbl-wrap">
         <table><thead><tr>
-          <th class="col-sticky" style="min-width:155px">Property name</th>
+          <th class="col-sticky" style="min-width:200px">Property name</th>
           <th style="min-width:48px">Units</th>
           <th style="min-width:105px">Ec occ (%)</th>
           <th style="min-width:68px">Occ tier</th>
@@ -616,7 +616,7 @@ let rowId=0, groupId=0, checkId=3, pendingImport=null;
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
     SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
-    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[]}));
+    SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]}));
   });
 }
 
@@ -1006,8 +1006,10 @@ function getRowWarnings(type, rowId){
     warns.push('No unreturned capital set — the CF tier will always be Miss for this property.');
   if(r.group&&!groupNames.includes(r.group))
     warns.push(`Syndication group "${r.group}" no longer exists — please re-assign`);
-  if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length)
-    r.belowNoiMissing.forEach(lbl=>warns.push(`"${lbl}" not found below NOI in the imported income statement`));
+  if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length){
+    const ackd=r.acknowledgedChecks||[];
+    r.belowNoiMissing.filter(lbl=>!ackd.includes(lbl)).forEach(lbl=>warns.push(`"${lbl}" not found below NOI in the imported income statement`));
+  }
   return warns;
 }
 
@@ -1017,13 +1019,40 @@ function showRowWarnings(type, rowId){
   const warns=getRowWarnings(type, rowId);
   if(!warns.length) return;
   document.getElementById('row-warn-title').textContent=(r.name||'Unnamed property')+' — Warnings';
-  document.getElementById('row-warn-list').innerHTML=warns.map(w=>
-    `<div style="display:flex;gap:10px;padding:10px 12px;background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius)">
+  const ackd=r.acknowledgedChecks||[];
+  const activeBelow=(r.belowNoiMissing||[]).filter(lbl=>!ackd.includes(lbl));
+  document.getElementById('row-warn-list').innerHTML=warns.map(w=>{
+    const matchedLabel=activeBelow.find(lbl=>w.includes(`"${lbl}"`));
+    const dismissBtn=matchedLabel
+      ?`<button onclick="acknowledgeCheck('${type}',${rowId},${JSON.stringify(matchedLabel)})"
+          style="white-space:nowrap;flex-shrink:0;align-self:center;padding:3px 10px;font-size:11px;border:1px solid #d4a017;border-radius:4px;background:transparent;color:var(--amber);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s"
+          onmouseover="this.style.background='var(--amber-light)'" onmouseout="this.style.background='transparent'">
+          Mark as N/A
+        </button>`
+      :'';
+    return `<div style="display:flex;gap:10px;padding:10px 12px;background:var(--amber-light);border:1px solid #d4a01744;border-radius:var(--radius);align-items:flex-start">
       <span style="color:var(--amber);font-size:15px;flex-shrink:0">⚠</span>
-      <span style="font-size:13px;color:var(--text);line-height:1.5">${w}</span>
-    </div>`
-  ).join('');
+      <span style="font-size:13px;color:var(--text);line-height:1.5;flex:1">${w}</span>
+      ${dismissBtn}
+    </div>`;
+  }).join('');
   document.getElementById('row-warn-modal').style.display='flex';
+}
+
+function acknowledgeCheck(type, rowId, label){
+  const r=state[type].rows.find(r=>r.id===rowId);
+  if(!r) return;
+  if(!r.acknowledgedChecks) r.acknowledgedChecks=[];
+  if(!r.acknowledgedChecks.includes(label)) r.acknowledgedChecks.push(label);
+  saveState();
+  renderTable(type);
+  // Refresh modal — close it if no warnings remain
+  const remaining=getRowWarnings(type, rowId);
+  if(!remaining.length){
+    document.getElementById('row-warn-modal').style.display='none';
+  } else {
+    showRowWarnings(type, rowId);
+  }
 }
 
 // ─── Notes modal ─────────────────────────────────────────────────────────────
@@ -1434,7 +1463,7 @@ function switchTab(t){
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
-function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[]});saveState();renderTable(type);}
+function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]});saveState();renderTable(type);}
 function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||r.status==='active');if(active.length===0)return;const last=active[active.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows=state[type].rows.filter(r=>r.id!==last.id);saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);renderWaitList();renderDisposedTab();updateWaitListBadge();updateDisposedBadge();}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
@@ -1500,7 +1529,7 @@ function renderArchivedSection(type){
 }
 
 function addArchivedRow(type,status){
-  state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:'',belowNoiMissing:[]});
+  state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:'',belowNoiMissing:[],acknowledgedChecks:[]});
   saveState();
   if(status==='ineligible'){renderWaitList();updateWaitListBadge();}
   else renderArchivedSection(type);
@@ -2029,10 +2058,11 @@ function applyPayload(payload){
   // Backfill fields added after initial save so old data loads cleanly
   ['nonpgo','pgo'].forEach(type=>{
     state[type].rows.forEach(r=>{
-      if(!r.status)           r.status          = 'active';
-      if(!r.acquiredDate)     r.acquiredDate     = '';
-      if(!r.soldDate)         r.soldDate         = '';
-      if(!r.belowNoiMissing)  r.belowNoiMissing  = [];
+      if(!r.status)              r.status             = 'active';
+      if(!r.acquiredDate)        r.acquiredDate        = '';
+      if(!r.soldDate)            r.soldDate            = '';
+      if(!r.belowNoiMissing)     r.belowNoiMissing     = [];
+      if(!r.acknowledgedChecks)  r.acknowledgedChecks  = [];
     });
   });
   rowId   = payload.rowId   || 0;
