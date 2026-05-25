@@ -327,8 +327,8 @@
 
 <div class="main">
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('nonpgo')">Non-PGO properties</button>
-    <button class="tab" onclick="switchTab('pgo')">PGO properties</button>
+    <button class="tab active" onclick="switchTab('nonpgo')">3rd Party PM/SD properties</button>
+    <button class="tab" onclick="switchTab('pgo')">PGO Non-SD properties</button>
     <button class="tab" onclick="switchTab('waitlist')" id="tab-btn-waitlist">⏳ Wait List</button>
     <button class="tab" onclick="switchTab('disposed')" id="tab-btn-disposed">🗂 Disposed</button>
     <button class="tab" onclick="switchTab('syndicates')">Syndication groups</button>
@@ -1580,7 +1580,7 @@ function renderWaitList(){
 
   // Merge both tabs, tagging each row with its source type
   const all=[
-    ...state.nonpgo.rows.filter(r=>r.status==='ineligible').map(r=>({...r,_type:'nonpgo',_label:'Non-PGO'})),
+    ...state.nonpgo.rows.filter(r=>r.status==='ineligible').map(r=>({...r,_type:'nonpgo',_label:'3rd Party PM/SD'})),
     ...state.pgo.rows.filter(r=>r.status==='ineligible').map(r=>({...r,_type:'pgo',_label:'PGO'}))
   ];
 
@@ -1595,7 +1595,7 @@ function renderWaitList(){
         </div>
         <div class="empty-state" style="padding:32px;color:var(--text3)">
           No properties on the wait list.<br>
-          <span style="font-size:12px">Add a property to the Non-PGO or PGO tab, then use the ⋯ menu to mark it as ineligible.</span>
+          <span style="font-size:12px">Add a property to the 3rd Party PM/SD or PGO tab, then use the ⋯ menu to mark it as ineligible.</span>
         </div>
       </div>`;
     return;
@@ -1609,7 +1609,7 @@ function renderWaitList(){
       :`<span style="font-family:\'DM Mono\',monospace;font-size:12px">${ef}</span>${nowEligible?'<span class="archived-eligible-badge">✓ Eligible now</span>':''}`;
     const typeBadge=r._type==='pgo'
       ?'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--blue-light);color:var(--blue);font-weight:500">PGO</span>'
-      :'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);font-weight:500">Non-PGO</span>';
+      :'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);font-weight:500">3rd Party PM/SD</span>';
     return `<tr>
       <td style="font-weight:500;padding-left:16px"><input value="${esc(r.name||'')}" placeholder="Property name" onchange="setArchivedField('${r._type}',${r.id},'name',this.value)" style="font-size:13px;width:100%;padding:3px 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-family:\'DM Sans\',sans-serif;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="if(document.activeElement!==this)this.style.borderColor=\'transparent\'" onfocus="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--bg)\'" onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'"></td>
       <td>${typeBadge}</td>
@@ -1656,7 +1656,7 @@ function renderDisposedTab(){
   if(!cont)return;
 
   const all=[
-    ...state.nonpgo.rows.filter(r=>r.status==='sold').map(r=>({...r,_type:'nonpgo',_label:'Non-PGO'})),
+    ...state.nonpgo.rows.filter(r=>r.status==='sold').map(r=>({...r,_type:'nonpgo',_label:'3rd Party PM/SD'})),
     ...state.pgo.rows.filter(r=>r.status==='sold').map(r=>({...r,_type:'pgo',_label:'PGO'}))
   ];
 
@@ -1677,7 +1677,7 @@ function renderDisposedTab(){
   const rows=all.map(r=>{
     const typeBadge=r._type==='pgo'
       ?'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--blue-light);color:var(--blue);font-weight:500">PGO</span>'
-      :'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);font-weight:500">Non-PGO</span>';
+      :'<span style="font-size:10px;padding:1px 7px;border-radius:10px;background:var(--accent-light);color:var(--accent);font-weight:500">3rd Party PM/SD</span>';
     const soldDisplay=r.soldDate
       ?`<span style="font-family:'DM Mono',monospace;font-size:12px">${r.soldDate}</span>`
       :'<span style="color:var(--text3);font-style:italic">not recorded</span>';
@@ -1943,9 +1943,10 @@ function renderGroups(type){
 // ─── results ──────────────────────────────────────────────────────────────────
 function calcEarned(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
-  const n=state[type].rows.length;if(!n)return 0;
+  const activeRows=state[type].rows.filter(r=>!r.status||r.status==='active');
+  const n=activeRows.length;if(!n)return 0;
   const rate=pool/n, cfMap=buildCFMap(type), annFactor=getAnnFactor(type);
-  const raw=state[type].rows.reduce((s,r)=>{
+  const raw=activeRows.reduce((s,r)=>{
     const ot=occTier(r.occ),nt=noiTier(r.priorNoi,r.currentNoi),ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(getEffectiveCF(r),r.capital,annFactor));
     return s+rate*(wOcc(ot)+wNOI(nt)+wCF(ct));
   },0);
@@ -1959,7 +1960,7 @@ function renderResults(){
     const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
     const ps=document.getElementById('pstart-'+type).value, pe=document.getElementById('pend-'+type).value;
     const period=ps&&pe?`${ps} to ${pe}`:'';
-    const cfMap=buildCFMap(type), rows=state[type].rows, n=rows.length, rate=n>0?pool/n:0;
+    const cfMap=buildCFMap(type), rows=state[type].rows.filter(r=>!r.status||r.status==='active'), n=rows.length, rate=n>0?pool/n:0;
     const annFactor=getAnnFactor(type);
     let raw=0,occE=0,noiE=0,cfE=0,mO=0,t1O=0,t2O=0,t3O=0,mN=0,t1N=0,t2N=0,t3N=0,mC=0,t1C=0,t2C=0,t3C=0;
     rows.forEach(r=>{
@@ -1972,7 +1973,7 @@ function renderResults(){
     });
     const capped=raw>pool, earned=Math.min(raw,pool), cap=pool>0?earned/pool*100:0, sc=raw>0&&capped?earned/raw:1;
     grandEarned+=earned; grandPool+=pool; tabEarned[type]=earned;
-    const label=type==='nonpgo'?'Non-PGO':'PGO';
+    const label=type==='nonpgo'?'3rd Party PM/SD':'PGO';
     return`<div class="section-result">
       <h3>${label} · ${period} · ${n} properties · per-property rate: ${n>0?fmtD(rate,2):'—'}</h3>
       <div class="smgrid">
@@ -1998,10 +1999,10 @@ function renderResults(){
   }).join('');
   const grandCap=grandPool>0?grandEarned/grandPool*100:0;
   document.getElementById('grand-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Total properties</div><div class="metric-value">${state.nonpgo.rows.length+state.pgo.rows.length}</div></div>
+    <div class="metric"><div class="metric-label">Total properties</div><div class="metric-value">${state.nonpgo.rows.filter(r=>!r.status||r.status==='active').length+state.pgo.rows.filter(r=>!r.status||r.status==='active').length}</div></div>
     <div class="metric"><div class="metric-label">Combined max pool</div><div class="metric-value" style="font-size:20px">${fmt(grandPool)}</div></div>
     <div class="metric accent"><div class="metric-label">Total earned</div><div class="metric-value" style="font-size:20px">${fmtD(grandEarned,2)}</div><div class="pct-bar-wrap"><div class="pct-bar" style="width:${Math.min(grandCap,100).toFixed(1)}%"></div></div><div class="metric-sub">${fmtP(grandCap)} of combined pool</div></div>
-    <div class="metric"><div class="metric-label">Non-PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.nonpgo||0,2)}</div></div>
+    <div class="metric"><div class="metric-label">3rd Party PM/SD earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.nonpgo||0,2)}</div></div>
     <div class="metric"><div class="metric-label">PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.pgo||0,2)}</div></div>`;
   document.getElementById('results-sections').innerHTML=sections;
 }
@@ -2257,7 +2258,7 @@ function renderSyndicates(){
       const cfDisplay = cf!=='' ? fmtAcct(cf) : '<span style="color:var(--text3);font-style:italic">not entered</span>';
       const cfClass = !isNaN(cfNum) ? (cfNum>0?'cf-positive':cfNum<0?'cf-negative':'') : '';
       const tabLabel = r.tab==='nonpgo'
-        ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 6px;border-radius:10px;font-weight:500">Non-PGO</span>'
+        ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 6px;border-radius:10px;font-weight:500">3rd Party PM/SD</span>'
         : '<span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:10px;font-weight:500">PGO</span>';
       const noiTierBadge = badge(noiTier(r.priorNoi, r.currentNoi));
       const occTierBadge = badge(occTier(r.occ));
@@ -2342,7 +2343,7 @@ function rollToNextPeriod(){
   const pgos = document.getElementById('pstart-pgo').value;
   const pgoe = document.getElementById('pend-pgo').value;
   if ((pgos && pgos !== ps) || (pgoe && pgoe !== pe)) {
-    if (!confirm('Warning: the PGO tab has a different period ('+pgos+' → '+pgoe+') than the Non-PGO tab ('+ps+' → '+pe+'). Rolling forward will set both tabs to the same new period. Continue?')) return;
+    if (!confirm('Warning: the PGO tab has a different period ('+pgos+' → '+pgoe+') than the 3rd Party PM/SD tab ('+ps+' → '+pe+'). Rolling forward will set both tabs to the same new period. Continue?')) return;
   }
 
   const [sy, sm] = ps.split('-').map(Number);
