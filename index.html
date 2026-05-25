@@ -665,15 +665,17 @@ function getEffectiveCF(r){
 }
 function buildCFMap(type){
   const map={};
-  const annFactor=getAnnFactor(type);
-  // Collect capital from ALL tabs so cross-tab groups resolve correctly (M-1 fix).
+  // Use per-tab annualization factors so cross-tab group pooling is correct
+  // even if the two tabs happen to have different period lengths.
+  const annFactors={nonpgo:getAnnFactor('nonpgo'),pgo:getAnnFactor('pgo')};
+  // Collect capital from ALL tabs so cross-tab groups resolve correctly.
   const allGroupCapital={};
   ['nonpgo','pgo'].forEach(t=>{
     state[t].groups.forEach(g=>{
       if(!allGroupCapital[g.name]&&g.capital) allGroupCapital[g.name]=g.capital;
     });
   });
-  // Build the map from ALL groups across both tabs, not just the current tab (M-1 fix).
+  // Build the map from ALL groups across both tabs.
   const allGroupsSeen={};
   ['nonpgo','pgo'].forEach(t=>{
     state[t].groups.forEach(g=>{
@@ -683,10 +685,12 @@ function buildCFMap(type){
   Object.values(allGroupsSeen).forEach(g=>{
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
     if(!isNaN(k)&&k!==0){
+      // Annualize each property's CF using its own tab's factor before pooling.
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
-        return sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0);
+        const af=annFactors[t];
+        return sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0)*af,0);
       },0);
-      map[g.name]=cfTierFromPct((total*annFactor/k)*100);
+      map[g.name]=cfTierFromPct((total/k)*100);
     } else map[g.name]='miss';
   });
   return map;
@@ -789,7 +793,7 @@ function downloadOccTemplate(){
   ['nonpgo','pgo'].forEach(type=>{
     state[type].rows.forEach(r=>{
       const lastMonthCol = String.fromCharCode(65 + months.length); // e.g. G for 6 months
-      rows.push([r.name||'', ...months.map(()=>''), `=SUM(B${dataRowIdx}:${lastMonthCol}${dataRowIdx})/${months.length}`]);
+      rows.push([r.name||'', ...months.map(()=>''), `=IFERROR(AVERAGEIF(B${dataRowIdx}:${lastMonthCol}${dataRowIdx},"<>"&""),"")`]);
       dataRowIdx++;
     });
   });
@@ -1010,7 +1014,7 @@ function getRowWarnings(type, rowId){
   const hasNOI=r.currentNoi!==''&&r.currentNoi!==undefined;
   if(!hasOcc&&!hasNOI&&!hasCF)
     all.push({key:'no-data', msg:'No data entered on any trigger'});
-  if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null))
+  if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null||isNaN(parseFloat(r.capexCredit))))
     all.push({key:'loc-capex', msg:'LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.'});
   if(!r.group&&hasCF&&(r.capital===''||r.capital===undefined||r.capital===null||parseFloat(r.capital)===0))
     all.push({key:'no-capital', msg:'No unreturned capital set — the CF tier will always be Miss for this property.'});
@@ -1440,7 +1444,8 @@ async function applyImport(){
     if(r.loc){
       const capexInput=document.getElementById('modal-capex-input');
       const capexVal=capexInput ? parseFloat(capexInput.value) : NaN;
-      r.capexCredit = (!isNaN(capexVal) && capexVal>0) ? capexVal : '';
+      // Store 0 explicitly so "no LOC-funded CapEx this period" suppresses the warning.
+      r.capexCredit = !isNaN(capexVal) ? capexVal : '';
     }
     r.imported=true;
     if(file){
@@ -1479,8 +1484,8 @@ function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);renderWaitList();renderDisposedTab();updateWaitListBadge();updateDisposedBadge();}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
 function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
-function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g){['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===g.name)r.group='';}));}state[type].groups=state[type].groups.filter(g=>g.id!==id);saveState();renderGroups('nonpgo');renderGroups('pgo');renderTable('nonpgo');renderTable('pgo');}
-function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';state[type].rows.forEach(r=>{if(r.group===old)r.group=val;});if(g)g.name=val;saveState();renderGroups(type);renderTable(type);}
+function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g){['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===g.name)r.group='';}));}state[type].groups=state[type].groups.filter(g=>g.id!==id);saveState();renderGroups('nonpgo');renderGroups('pgo');renderTable('nonpgo');renderTable('pgo');renderWaitList();renderDisposedTab();}
+function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===old)r.group=val;}));if(g)g.name=val;saveState();renderGroups(type);renderTable('nonpgo');renderTable('pgo');}
 function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;saveState();renderGroups(type);renderTable(type);}}
 function setLOC(type,id,checked){const r=state[type].rows.find(r=>r.id===id);if(!r)return;r.loc=checked;if(!checked)r.capexCredit='';saveState();renderTable(type);}
 
@@ -1543,7 +1548,7 @@ function addArchivedRow(type,status){
   state[type].rows.push({id:++rowId,name:'',units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,platform:'buildium',group:'',capital:'',imported:false,notes:'',status,acquiredDate:'',soldDate:'',belowNoiMissing:[],dismissedWarnings:[]});
   saveState();
   if(status==='ineligible'){renderWaitList();updateWaitListBadge();}
-  else renderArchivedSection(type);
+  else if(status==='sold'){renderDisposedTab();updateDisposedBadge();}
 }
 
 // ─── wait list tab ─────────────────────────────────────────────────────────────
@@ -1921,14 +1926,17 @@ function renderGroups(type){
   // Build cross-tab capital map so shared groups (e.g. MWP 1) use consistent capital
   const allGroupCapital={};
   ['nonpgo','pgo'].forEach(t=>state[t].groups.forEach(g=>{if(!allGroupCapital[g.name]&&g.capital)allGroupCapital[g.name]=g.capital;}));
-  const annFactor=getAnnFactor(type);
+  const annFactors={nonpgo:getAnnFactor('nonpgo'),pgo:getAnnFactor('pgo')};
   cont.innerHTML=state[type].groups.map(g=>{
-    // Sum CF across BOTH tabs for this group name to match buildCFMap logic (active only)
-    const totalCF=['nonpgo','pgo'].reduce((sum,t)=>sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0),0),0);
+    // Sum annualized CF across BOTH tabs using each tab's own factor — matches buildCFMap.
+    const totalAnnCF=['nonpgo','pgo'].reduce((sum,t)=>{
+      const af=annFactors[t];
+      return sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0)*af,0);
+    },0);
     // Display only active properties in THIS tab for the panel list
     const props=state[type].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active'));
     const k=parseFloat(allGroupCapital[g.name]||g.capital);
-    const pct=(!isNaN(k)&&k!==0)?(totalCF*annFactor/k*100):null;
+    const pct=(!isNaN(k)&&k!==0)?(totalAnnCF/k*100):null;
     const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
     return`<div class="group-row"><div class="group-head">
       <input class="g-name-inp" value="${g.name}" onchange="setGroupName('${type}',${g.id},this.value)">
@@ -2074,6 +2082,8 @@ function applyPayload(payload){
       if(!r.acquiredDate)        r.acquiredDate        = '';
       if(!r.soldDate)            r.soldDate            = '';
       if(!r.belowNoiMissing)     r.belowNoiMissing     = [];
+      if(!r.occMonths)           r.occMonths           = [];
+      if(r.capexCredit===undefined) r.capexCredit      = '';
       // Migrate old acknowledgedChecks → dismissedWarnings
       if(!r.dismissedWarnings){
         r.dismissedWarnings = (r.acknowledgedChecks||[]).map(lbl=>`below-noi:${lbl}`);
@@ -2145,11 +2155,6 @@ async function saveToSupabase(){
     const payload = buildPayload();
     // Use POST with upsert preference so the row is created if it doesn't exist yet.
     // PATCH on a non-existent row is a silent no-op in Supabase PostgREST.
-    const headers = {
-      ...sbHeaders(),
-      'Prefer': 'resolution=merge-duplicates,return=minimal'
-    };
-    delete headers['Prefer']; // rebuild cleanly
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/${SB_TABLE}`,
       {
@@ -2372,6 +2377,10 @@ function rollToNextPeriod(){
       r.occMonths   = [];
       r.imported      = false;
       r.incomeFilePath= '';
+      r.belowNoiMissing = [];
+      // Clear only below-NOI dismissals — they're import-specific and stale after a roll.
+      // Other dismissals (no-data, loc-capex, etc.) are intentional and should persist.
+      r.dismissedWarnings = (r.dismissedWarnings||[]).filter(k=>!k.startsWith('below-noi:'));
     });
     document.getElementById('pstart-'+type).value = newStart;
     document.getElementById('pend-'+type).value   = newEnd;
