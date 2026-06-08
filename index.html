@@ -1516,6 +1516,24 @@ function handleRowStatus(type,id,status){
   updateDisposedBadge();
 }
 
+function moveRowToTab(fromType,id){
+  const toType=fromType==='nonpgo'?'pgo':'nonpgo';
+  const fromLabel=fromType==='nonpgo'?'3rd Party PM/SD Properties':'PGO Non-SD Properties';
+  const toLabel=toType==='nonpgo'?'3rd Party PM/SD Properties':'PGO Non-SD Properties';
+  const r=state[fromType].rows.find(r=>r.id===id);
+  if(!r)return;
+  if(!confirm(`Move "${r.name||'this property'}" from ${fromLabel} to ${toLabel}?`))return;
+  state[fromType].rows=state[fromType].rows.filter(r=>r.id!==id);
+  state[toType].rows.push({...r});
+  saveState();
+  renderTable(fromType);
+  renderTable(toType);
+  renderWaitList();
+  renderDisposedTab();
+  updateWaitListBadge();
+  updateDisposedBadge();
+}
+
 function restoreRow(type,id){
   const r=state[type].rows.find(r=>r.id===id);
   if(!r)return;
@@ -1902,8 +1920,9 @@ function renderTable(type){
       </td>
       <td style="white-space:nowrap">
         <div style="display:inline-flex;align-items:center;gap:3px">
-          <select class="row-action-sel" title="Archive this property" onchange="handleRowStatus('${type}',${row.id},this.value);this.value=''">
+          <select class="row-action-sel" title="Archive this property" onchange="if(this.value==='move'){moveRowToTab('${type}',${row.id});this.value='';}else{handleRowStatus('${type}',${row.id},this.value);this.value='';}">
             <option value="">⋯</option>
+            <option value="move">Move to ${type==='nonpgo'?'PGO Non-SD':'3rd Party PM/SD'}…</option>
             <option value="ineligible">Mark as ineligible</option>
             <option value="sold">Mark as sold</option>
           </select>
@@ -2392,11 +2411,29 @@ function rollToNextPeriod(){
   alert(`Rolled forward to ${newStart} → ${newEnd}. Prior NOI updated.`);
 }
 
+// ─── one-time migration: move 7 properties nonpgo → pgo ───────────────────────
+const MIGRATION_KEY = 'migration_move7_to_pgo_done';
+const MOVE_TO_PGO = [
+  'The Landmark on Dakota','Bancroft Place','Boulder Pointe',
+  'Eagle Creek','Judee','Maple Park','The Preserve'
+];
+function runMigration7(){
+  if(localStorage.getItem(MIGRATION_KEY)) return;
+  const toMove=state.nonpgo.rows.filter(r=>MOVE_TO_PGO.includes((r.name||'').trim()));
+  if(!toMove.length){localStorage.setItem(MIGRATION_KEY,'1');return;}
+  const ids=new Set(toMove.map(r=>r.id));
+  state.nonpgo.rows=state.nonpgo.rows.filter(r=>!ids.has(r.id));
+  toMove.forEach(r=>state.pgo.rows.push({...r}));
+  saveState();
+  localStorage.setItem(MIGRATION_KEY,'1');
+}
+
 // ─── boot ─────────────────────────────────────────────────────────────────────
 // Load from localStorage first (instant, synchronous) as a fallback
 // Then async load from Supabase which will override if successful
 const localOk = loadStateLocalFallback();
 if (!localOk) initFromSeed();
+runMigration7();
 renderTable('nonpgo');
 renderTable('pgo');
 renderGroups('nonpgo');
@@ -2407,6 +2444,7 @@ updateDisposedBadge();
 // Async load from Supabase (overrides local fallback if successful)
 loadFromSupabase().then(ok => {
   if(ok){
+    runMigration7();
     renderTable('nonpgo');
     renderTable('pgo');
     renderGroups('nonpgo');
