@@ -2412,20 +2412,17 @@ function rollToNextPeriod(){
 }
 
 // ─── one-time migration: move 7 properties nonpgo → pgo ───────────────────────
-const MIGRATION_KEY = 'migration_move7_to_pgo_done';
 const MOVE_TO_PGO = [
   'The Landmark on Dakota','Bancroft Place','Boulder Pointe',
   'Eagle Creek','Judee','Maple Park','The Preserve'
 ];
 function runMigration7(){
-  if(localStorage.getItem(MIGRATION_KEY)) return;
   const toMove=state.nonpgo.rows.filter(r=>MOVE_TO_PGO.includes((r.name||'').trim()));
-  if(!toMove.length){localStorage.setItem(MIGRATION_KEY,'1');return;}
+  if(!toMove.length) return; // already done, no-op
   const ids=new Set(toMove.map(r=>r.id));
   state.nonpgo.rows=state.nonpgo.rows.filter(r=>!ids.has(r.id));
   toMove.forEach(r=>state.pgo.rows.push({...r}));
   saveState();
-  localStorage.setItem(MIGRATION_KEY,'1');
 }
 
 // ─── boot ─────────────────────────────────────────────────────────────────────
