@@ -2418,11 +2418,53 @@ const MOVE_TO_PGO = [
 ];
 function runMigration7(){
   const toMove=state.nonpgo.rows.filter(r=>MOVE_TO_PGO.includes((r.name||'').trim()));
-  if(!toMove.length) return; // already done, no-op
+  if(!toMove.length){
+    // Properties already moved — still repair groups in case they didn't copy over
+    repairGroupMemberships();
+    return;
+  }
+
+  // Copy any groups referenced by moving rows that don't yet exist in pgo
+  const pgoGroupNames=new Set(state.pgo.groups.map(g=>g.name));
+  toMove.forEach(r=>{
+    if(r.group && !pgoGroupNames.has(r.group)){
+      const src=state.nonpgo.groups.find(g=>g.name===r.group);
+      if(src){
+        state.pgo.groups.push({id:++groupId, name:src.name, capital:src.capital});
+        pgoGroupNames.add(src.name);
+      }
+    }
+  });
+
+  // Move the rows
   const ids=new Set(toMove.map(r=>r.id));
   state.nonpgo.rows=state.nonpgo.rows.filter(r=>!ids.has(r.id));
   toMove.forEach(r=>state.pgo.rows.push({...r}));
+
+  // Clean up any nonpgo groups that are now unused
+  const usedInNonpgo=new Set(state.nonpgo.rows.filter(r=>r.group).map(r=>r.group));
+  state.nonpgo.groups=state.nonpgo.groups.filter(g=>usedInNonpgo.has(g.name));
+
   saveState();
+}
+
+// Ensure every row's group name exists in its own tab's groups array.
+// If the group exists in the other tab, copy it over.
+function repairGroupMemberships(){
+  let changed=false;
+  ['nonpgo','pgo'].forEach(type=>{
+    const other=type==='nonpgo'?'pgo':'nonpgo';
+    const myGroupNames=new Set(state[type].groups.map(g=>g.name));
+    state[type].rows.filter(r=>r.group&&!myGroupNames.has(r.group)).forEach(r=>{
+      const src=state[other].groups.find(g=>g.name===r.group);
+      if(src){
+        state[type].groups.push({id:++groupId, name:src.name, capital:src.capital});
+        myGroupNames.add(src.name);
+        changed=true;
+      }
+    });
+  });
+  if(changed) saveState();
 }
 
 // ─── boot ─────────────────────────────────────────────────────────────────────
