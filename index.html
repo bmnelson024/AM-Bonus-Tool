@@ -2467,12 +2467,32 @@ function repairGroupMemberships(){
   if(changed) saveState();
 }
 
+// ─── restore 3 lost wait-list properties ─────────────────────────────────────
+const RESTORE_WAITLIST = ['Doral Apartments','500 Willow','127 Pearl'];
+function runRestoreWaitList(){
+  const allRows=[...state.nonpgo.rows,...state.pgo.rows];
+  const alreadyPresent=new Set(allRows.map(r=>(r.name||'').trim()));
+  const toRestore=RESTORE_WAITLIST.filter(n=>!alreadyPresent.has(n));
+  if(!toRestore.length) return;
+  toRestore.forEach(name=>{
+    state.nonpgo.rows.push({
+      id:++rowId,name,units:'',occ:'',occMonths:[],priorNoi:'',currentNoi:'',
+      cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:false,
+      platform:'buildium',group:'',capital:'',imported:false,notes:'',
+      status:'ineligible',acquiredDate:'',soldDate:'',
+      belowNoiMissing:[],dismissedWarnings:[]
+    });
+  });
+  saveState();
+}
+
 // ─── boot ─────────────────────────────────────────────────────────────────────
 // Load from localStorage first (instant, synchronous) as a fallback
 // Then async load from Supabase which will override if successful
 const localOk = loadStateLocalFallback();
 if (!localOk) initFromSeed();
 runMigration7();
+runRestoreWaitList();
 renderTable('nonpgo');
 renderTable('pgo');
 renderGroups('nonpgo');
@@ -2484,6 +2504,7 @@ updateDisposedBadge();
 loadFromSupabase().then(ok => {
   if(ok){
     runMigration7();
+    runRestoreWaitList();
     renderTable('nonpgo');
     renderTable('pgo');
     renderGroups('nonpgo');
