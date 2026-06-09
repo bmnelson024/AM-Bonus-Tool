@@ -102,6 +102,9 @@
   .dl-btn:hover{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
   .row-action-sel{padding:2px 4px;border:1px solid var(--border2);border-radius:4px;background:transparent;color:var(--text3);cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif;width:auto!important;}
   .row-action-sel:hover{background:var(--bg);}
+  .th-sort{cursor:pointer;user-select:none;}
+  .th-sort:hover{color:var(--text)!important;background:var(--border)!important;}
+  .th-sort-active{color:var(--accent)!important;}
   .archived-eligible-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:600;background:#dcfce7;color:#14532d;border:1px solid #4ade80;margin-left:6px;}
 
   /* Modal */
@@ -415,31 +418,7 @@
         </div>
       </div>
       <div class="tbl-wrap">
-        <table><thead><tr>
-          <th class="col-sticky" style="min-width:200px">Property name</th>
-          <th style="min-width:48px">Units</th>
-          <th style="min-width:105px">Ec occ (%)</th>
-          <th style="min-width:68px">Occ tier</th>
-          <th style="min-width:80px">Occ bonus</th>
-          <th style="min-width:115px">Prior NOI Apr–Sep 25 ($)</th>
-          <th style="min-width:115px">Current NOI ($)</th>
-          <th style="min-width:68px">NOI tier</th>
-          <th style="min-width:80px">NOI bonus</th>
-          <th style="min-width:115px">Cash flow ($)</th>
-          <th style="min-width:115px">Adjustments ($)</th>
-          <th style="min-width:115px">Adj cash flow ($)</th>
-          <th style="min-width:68px">CF tier</th>
-          <th style="min-width:80px">CF bonus</th>
-          <th style="min-width:130px">Syndication group</th>
-          <th style="min-width:130px">Unreturned capital ($)</th>
-          <th style="min-width:75px">Line of credit</th>
-          <th style="min-width:90px">Platform</th>
-          <th style="min-width:110px">Import income stmt</th>
-          <th style="min-width:85px">Total bonus</th>
-          <th style="min-width:42px;text-align:center" title="Notes">📝</th>
-          <th></th>
-        </tr></thead>
-        <tbody id="body-nonpgo"></tbody></table>
+        <table><thead id="head-nonpgo"></thead><tbody id="body-nonpgo"></tbody></table>
       </div>
     </div>
     <div id="archived-nonpgo"></div>
@@ -491,31 +470,7 @@
         </div>
       </div>
       <div class="tbl-wrap">
-        <table><thead><tr>
-          <th class="col-sticky" style="min-width:200px">Property name</th>
-          <th style="min-width:48px">Units</th>
-          <th style="min-width:105px">Ec occ (%)</th>
-          <th style="min-width:68px">Occ tier</th>
-          <th style="min-width:80px">Occ bonus</th>
-          <th style="min-width:115px">Prior NOI Apr–Sep 25 ($)</th>
-          <th style="min-width:115px">Current NOI ($)</th>
-          <th style="min-width:68px">NOI tier</th>
-          <th style="min-width:80px">NOI bonus</th>
-          <th style="min-width:115px">Cash flow ($)</th>
-          <th style="min-width:115px">Adjustments ($)</th>
-          <th style="min-width:115px">Adj cash flow ($)</th>
-          <th style="min-width:68px">CF tier</th>
-          <th style="min-width:80px">CF bonus</th>
-          <th style="min-width:130px">Syndication group</th>
-          <th style="min-width:130px">Unreturned capital ($)</th>
-          <th style="min-width:75px">Line of credit</th>
-          <th style="min-width:90px">Platform</th>
-          <th style="min-width:110px">Import income stmt</th>
-          <th style="min-width:85px">Total bonus</th>
-          <th style="min-width:42px;text-align:center" title="Notes">📝</th>
-          <th></th>
-        </tr></thead>
-        <tbody id="body-pgo"></tbody></table>
+        <table><thead id="head-pgo"></thead><tbody id="body-pgo"></tbody></table>
       </div>
     </div>
     <div id="archived-pgo"></div>
@@ -659,6 +614,12 @@ const state = {
   }
 };
 let rowId=0, groupId=0, checkId=3, pendingImport=null;
+const sortState={nonpgo:{col:null,dir:1},pgo:{col:null,dir:1}};
+function setSortCol(type,col){
+  if(sortState[type].col===col){sortState[type].dir*=-1;}
+  else{sortState[type].col=col;sortState[type].dir=1;}
+  renderTable(type);
+}
 
 function initFromSeed(){
   ['nonpgo','pgo'].forEach(type=>{
@@ -1873,6 +1834,35 @@ function updatePattern(cid,pi,val){
   if(c){c.patterns[pi]=val;saveState();}
 }
 
+// ─── sort value extractor ──────────────────────────────────────────────────────
+function getSortVal(row,col){
+  const tr=t=>t==='3'?3:t==='2'?2:t==='1'?1:t==='na'?-1:0;
+  const n=v=>(v!==''&&v!==null&&v!==undefined&&!isNaN(parseFloat(v)))?parseFloat(v):-Infinity;
+  switch(col){
+    case 'name':      return(row.name||'').toLowerCase();
+    case 'units':     return n(row.units);
+    case 'occ':       return n(row.occ);
+    case 'occTier':   return tr(row._ot);
+    case 'occBonus':  return row._ob||0;
+    case 'priorNoi':  return n(row.priorNoi);
+    case 'currentNoi':return n(row.currentNoi);
+    case 'noiTier':   return tr(row._nt);
+    case 'noiBonus':  return row._nb||0;
+    case 'cf':        return n(row.cf);
+    case 'adjustments':return n(row.adjustments);
+    case 'adjCf':     return(row.cf!==''&&row.cf!==undefined&&row._effectiveCF!==null&&!isNaN(row._effectiveCF))?row._effectiveCF:-Infinity;
+    case 'cfTier':    return tr(row._ct);
+    case 'cfBonus':   return row._cb||0;
+    case 'group':     return(row.group||'').toLowerCase();
+    case 'capital':   return n(row.capital);
+    case 'loc':       return row.loc?1:0;
+    case 'platform':  return(row.platform||'').toLowerCase();
+    case 'imported':  return row.imported?1:0;
+    case 'bonus':     return row._b||0;
+    default:          return 0;
+  }
+}
+
 // ─── render table ─────────────────────────────────────────────────────────────
 function renderTable(type){
   const pool=parseFloat(document.getElementById('pool-'+type).value)||0;
@@ -1900,15 +1890,57 @@ function renderTable(type){
   const rmBtn=document.getElementById('btn-remove-'+type);
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
+  const head=document.getElementById('head-'+type);
   if(n===0){body.innerHTML=`<tr><td colspan="22" class="empty-state">No active properties — click "+ Add property".</td></tr>`;renderGroups(type);renderArchivedSection(type);return;}
-  let totalBonus=0;
-  const rows=activeRows.map(row=>{
-    const ot=occTier(row.occ), nt=noiTier(row.priorNoi,row.currentNoi);
-    const effectiveCF=getEffectiveCF(row);
-    const ct=row.group?(cfMap[row.group]||'miss'):cfTierFromPct(annPct(effectiveCF,row.capital,annFactor));
-    const ob=rate*wOcc(ot), nb=rate*wNOI(nt), cb=rate*wCF(ct);
-    const b=ob+nb+cb;
-    totalBonus+=b;
+
+  // ── Enrich rows with all computed values (needed for sorting + rendering) ───
+  const enriched=activeRows.map(r=>{
+    const _ot=occTier(r.occ),_nt=noiTier(r.priorNoi,r.currentNoi);
+    const _effectiveCF=getEffectiveCF(r);
+    const _ct=r.group?(cfMap[r.group]||'miss'):cfTierFromPct(annPct(_effectiveCF,r.capital,annFactor));
+    const _ob=rate*wOcc(_ot),_nb=rate*wNOI(_nt),_cb=rate*wCF(_ct);
+    return{...r,_ot,_nt,_ct,_ob,_nb,_cb,_b:_ob+_nb+_cb,_effectiveCF};
+  });
+
+  // ── Sort ─────────────────────────────────────────────────────────────────────
+  const{col:sc,dir:sd}=sortState[type];
+  if(sc) enriched.sort((a,b)=>{const av=getSortVal(a,sc),bv=getSortVal(b,sc);return av===bv?0:(av<bv?-1:1)*sd;});
+
+  // ── Total bonus ───────────────────────────────────────────────────────────────
+  const totalBonus=enriched.reduce((sum,r)=>sum+r._b,0);
+
+  // ── Sortable header ───────────────────────────────────────────────────────────
+  if(head){
+    const{col:sortCol,dir:sortDir}=sortState[type];
+    const th=(col,lbl,minW,cls='')=>`<th class="th-sort${sortCol===col?' th-sort-active':''}${cls?' '+cls:''}" style="min-width:${minW}" onclick="setSortCol('${type}','${col}')">${lbl}${sortCol===col?(sortDir===1?' ↑':' ↓'):''}</th>`;
+    head.innerHTML=`<tr>
+      ${th('name','Property name','220px','col-sticky')}
+      ${th('units','Units','48px')}
+      ${th('occ','Ec occ (%)','105px')}
+      ${th('occTier','Occ tier','68px')}
+      ${th('occBonus','Occ bonus','80px')}
+      ${th('priorNoi','Prior NOI ($)','115px')}
+      ${th('currentNoi','Current NOI ($)','115px')}
+      ${th('noiTier','NOI tier','68px')}
+      ${th('noiBonus','NOI bonus','80px')}
+      ${th('cf','Cash flow ($)','115px')}
+      ${th('adjustments','Adjustments ($)','115px')}
+      ${th('adjCf','Adj cash flow ($)','115px')}
+      ${th('cfTier','CF tier','68px')}
+      ${th('cfBonus','CF bonus','80px')}
+      ${th('group','Syndication group','130px')}
+      ${th('capital','Unreturned capital ($)','130px')}
+      ${th('loc','Line of credit','75px')}
+      ${th('platform','Platform','90px')}
+      ${th('imported','Import income stmt','110px')}
+      ${th('bonus','Total bonus','85px')}
+      <th style="min-width:42px;text-align:center" title="Notes">📝</th>
+      <th></th>
+    </tr>`;
+  }
+
+  const rows=enriched.map(row=>{
+    const{_ot:ot,_nt:nt,_ct:ct,_ob:ob,_nb:nb,_cb:cb,_b:b,_effectiveCF:effectiveCF}=row;
     const groupOpts=`<option value="">— standalone —</option>`+groupNames.map(g=>`<option value="${g}" ${row.group===g?'selected':''}>${g}</option>`).join('');
     const capDisplay=row.capital!==''&&row.capital!==null?fmtAcct(row.capital):'';
     const capCell=row.group?'<span style="font-size:11px;color:var(--text3)">see group</span>':editCell('<span>'+(capDisplay||'')+'</span>',row.capital,type,row.id,'capital','0');
@@ -1924,7 +1956,7 @@ function renderTable(type){
     const adjsNum = parseFloat(adjsVal);
     const adjsClass = !isNaN(adjsNum) ? (adjsNum < 0 ? 'cf-positive' : adjsNum > 0 ? 'cf-negative' : '') : '';
     // Adj CF is computed via getEffectiveCF: cf + capexCredit - adjustments
-    const adjCfComputed = row.cf!=='' ? getEffectiveCF(row) : null;
+    const adjCfComputed = row.cf!=='' ? effectiveCF : null;
     const adjCfDisplay = adjCfComputed!==null&&!isNaN(adjCfComputed) ? fmtAcct(adjCfComputed) : '';
     const adjCfClass = adjCfComputed!==null&&!isNaN(adjCfComputed) ? (adjCfComputed>0?'cf-positive':adjCfComputed<0?'cf-negative':'') : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
@@ -2233,10 +2265,29 @@ async function loadFromSupabase(){
       setGhStatus('No saved data yet', 'info');
       return false;
     }
-    const payload = rows[0].payload;
-    const ok = applyPayload(payload);
+    const sbPayload = rows[0].payload;
+    const sbTime = sbPayload.savedAt ? new Date(sbPayload.savedAt) : new Date(0);
+
+    // Compare with what's in localStorage — use whichever is newer
+    let localTime = new Date(0);
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ const lp = JSON.parse(raw); if(lp.savedAt) localTime = new Date(lp.savedAt); }
+    } catch(e){}
+
+    if(localTime > sbTime){
+      // Local data is newer — keep it and push it up to Supabase
+      const diff = Math.round((localTime - sbTime) / 1000);
+      setGhStatus('Local data is '+diff+'s newer — syncing to cloud…', 'info');
+      clearTimeout(saveTimer);
+      await saveToSupabase();
+      return true; // state already correct from local load; re-render will happen in boot
+    }
+
+    // Supabase is newer (or equal) — apply it
+    const ok = applyPayload(sbPayload);
     if(ok){
-      const d = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : '';
+      const d = sbPayload.savedAt ? new Date(sbPayload.savedAt).toLocaleString() : '';
       setGhStatus('Loaded ✓  ' + d, 'ok');
     } else {
       setGhStatus('Bad data format', 'err');
@@ -2281,6 +2332,10 @@ async function saveToSupabase(){
 }
 
 function saveState(){
+  // Write to localStorage immediately — no waiting for Supabase.
+  // This ensures data survives tab-close even if the cloud sync hasn't fired yet.
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload())); } catch(e){}
+  // Debounce the cloud sync (Supabase will update localStorage again on success)
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>saveToSupabase(), 1500);
 }
