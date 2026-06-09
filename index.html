@@ -259,6 +259,46 @@
   </div>
 </div>
 
+<!-- Wait List Edit Modal -->
+<div class="modal-overlay" id="waitlist-edit-modal" style="display:none" onclick="if(event.target===this)closeWaitListEdit()">
+  <div class="modal" style="width:500px">
+    <div class="modal-header">
+      <h3 id="wl-edit-title">Edit property data</h3>
+      <div class="modal-sub">Data stored here carries over when the property moves to active.</div>
+    </div>
+    <div class="modal-body" style="padding-top:16px">
+      <div class="modal-fields">
+        <div class="modal-field">
+          <label>Units</label>
+          <input id="wl-edit-units" type="number" min="0" placeholder="e.g. 48" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);">
+        </div>
+        <div class="modal-field">
+          <label>Prior NOI <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:11px">(comparison baseline for first active cycle)</span></label>
+          <input id="wl-edit-priornoi" type="number" placeholder="e.g. 285000" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);">
+        </div>
+        <div class="modal-field">
+          <label>Current NOI <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:11px">(optional — track while waiting)</span></label>
+          <input id="wl-edit-currentnoi" type="number" placeholder="e.g. 295000" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);">
+        </div>
+        <div class="modal-field">
+          <label>Unreturned capital <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:11px">(if standalone, not in a syndication group)</span></label>
+          <input id="wl-edit-capital" type="number" placeholder="e.g. 2500000" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);">
+        </div>
+        <div class="modal-field">
+          <label>Notes</label>
+          <textarea id="wl-edit-notes" rows="3" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:var(--bg);resize:vertical;line-height:1.6;" placeholder="Anything to remember about this property…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeWaitListEdit()">Cancel</button>
+        <button class="btn-apply" onclick="saveWaitListEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Modal -->
 <div class="modal-overlay" id="import-modal" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -1597,6 +1637,43 @@ function updateWaitListBadge(){
   }
 }
 
+// ─── Wait List edit modal ─────────────────────────────────────────────────────
+let _wlEditType=null, _wlEditId=null;
+function showWaitListEdit(type,id){
+  const r=state[type].rows.find(r=>r.id===id);
+  if(!r)return;
+  _wlEditType=type; _wlEditId=id;
+  document.getElementById('wl-edit-title').textContent='Edit: '+(r.name||'(unnamed)');
+  document.getElementById('wl-edit-units').value=r.units||'';
+  document.getElementById('wl-edit-priornoi').value=r.priorNoi||'';
+  document.getElementById('wl-edit-currentnoi').value=r.currentNoi||'';
+  document.getElementById('wl-edit-capital').value=r.capital||'';
+  document.getElementById('wl-edit-notes').value=r.notes||'';
+  document.getElementById('waitlist-edit-modal').style.display='flex';
+}
+function closeWaitListEdit(){
+  document.getElementById('waitlist-edit-modal').style.display='none';
+  _wlEditType=null; _wlEditId=null;
+}
+function saveWaitListEdit(){
+  if(!_wlEditType||!_wlEditId)return;
+  const r=state[_wlEditType].rows.find(r=>r.id===_wlEditId);
+  if(!r)return;
+  const units=document.getElementById('wl-edit-units').value.trim();
+  const priorNoi=document.getElementById('wl-edit-priornoi').value.trim();
+  const currentNoi=document.getElementById('wl-edit-currentnoi').value.trim();
+  const capital=document.getElementById('wl-edit-capital').value.trim();
+  const notes=document.getElementById('wl-edit-notes').value.trim();
+  if(units!=='')r.units=units;
+  r.priorNoi=priorNoi;
+  r.currentNoi=currentNoi;
+  r.capital=capital;
+  r.notes=notes;
+  saveState();
+  closeWaitListEdit();
+  renderWaitList();
+}
+
 function renderWaitList(){
   const cont=document.getElementById('waitlist-content');
   if(!cont)return;
@@ -1638,7 +1715,10 @@ function renderWaitList(){
       <td>${typeBadge}</td>
       <td><input type="month" value="${r.acquiredDate||''}" onchange="setArchivedField('${r._type}',${r.id},'acquiredDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
       <td>${eligibleLabel}</td>
-      <td><button class="btn-add" onclick="restoreRow('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap">→ Move to active</button></td>
+      <td>
+        <button class="btn-add" onclick="showWaitListEdit('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap;margin-right:4px">✏ Edit data</button>
+        <button class="btn-add" onclick="restoreRow('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap">→ Move to active</button>
+      </td>
       <td><button class="del-btn" onclick="if(confirm('Remove this property from the wait list?')){removeRow('${r._type}',${r.id})}">×</button></td>
     </tr>`;
   }).join('');
