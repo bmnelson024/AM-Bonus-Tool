@@ -190,6 +190,8 @@
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <span id="gh-status">Connecting…</span>
     <button class="btn-nav" onclick="exportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⬇ Export backup</button>
+    <button class="btn-nav" onclick="triggerImportSave()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;" title="Load a previously exported backup JSON file">⬆ Import backup</button>
+    <input type="file" id="import-backup-input" accept=".json" style="display:none" onchange="importSave(this)">
     <button class="btn-nav" onclick="downloadOccTemplate()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;" title="Download a pre-filled Excel template for economic occupancy entry">⬇ Ec Occ template</button>
     <button class="btn-nav" onclick="triggerOccUpload()" style="background:rgba(255,255,255,0.15);font-weight:500;font-size:12px;" title="Upload completed economic occupancy spreadsheet (all properties)">⬆ Upload Ec Occ</button>
     <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
@@ -2504,6 +2506,46 @@ function exportSave(){
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch(e) { alert('Export failed: ' + e.message); }
+}
+
+function triggerImportSave(){
+  document.getElementById('import-backup-input').value = '';
+  document.getElementById('import-backup-input').click();
+}
+
+function importSave(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const payload = JSON.parse(e.target.result);
+      if(!payload.state || !payload.state.nonpgo || !payload.state.pgo){
+        alert('Invalid backup file — missing state data.'); return;
+      }
+      const nr = (payload.state.nonpgo.rows||[]).filter(r=>!r.status||r.status==='active').length;
+      const pr = (payload.state.pgo.rows||[]).filter(r=>!r.status||r.status==='active').length;
+      const savedAt = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : 'unknown date';
+      if(!confirm(`Load backup from ${savedAt}?\n\nThis will replace all current data with:\n• ${nr} active Non-PGO properties\n• ${pr} active PGO properties\n\nA backup of the current state will be exported first.`)) return;
+      exportSave(); // save current state before overwriting
+      const ok = applyPayload(payload);
+      if(!ok){ alert('Failed to apply backup — data format error.'); return; }
+      runMigration7();
+      runRestoreWaitList();
+      renderTable('nonpgo'); renderTable('pgo');
+      renderGroups('nonpgo'); renderGroups('pgo');
+      renderSyndicates();
+      renderWaitList(); renderDisposedTab();
+      updateWaitListBadge(); updateDisposedBadge();
+      renderSettings();
+      setGhStatus('Backup loaded — saving to cloud…', 'info');
+      clearTimeout(saveTimer);
+      saveToSupabase();
+    } catch(err) {
+      alert('Import failed: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ─── roll to next period ──────────────────────────────────────────────────────
