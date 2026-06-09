@@ -735,7 +735,7 @@ function validatePeriod(type){
   const pe=document.getElementById('pend-'+type).value;
   const startEl=document.getElementById('pstart-'+type);
   const endEl=document.getElementById('pend-'+type);
-  const bad=ps&&pe&&ps>=pe;
+  const bad=ps&&pe&&ps>pe;
   [startEl,endEl].forEach(el=>{
     el.style.borderColor=bad?'#d4a017':'';
     el.style.background=bad?'#fffbf0':'';
@@ -1013,7 +1013,8 @@ function getRowWarnings(type, rowId){
   const hasCF=r.cf!==''&&r.cf!==undefined&&r.cf!==null;
   const hasOcc=r.occ!==''&&r.occ!==undefined;
   const hasNOI=r.currentNoi!==''&&r.currentNoi!==undefined;
-  if(!hasOcc&&!hasNOI&&!hasCF)
+  const hasPriorNOI=r.priorNoi!==''&&r.priorNoi!==undefined&&r.priorNoi!==null;
+  if(!hasOcc&&!hasNOI&&!hasCF&&!hasPriorNOI)
     all.push({key:'no-data', msg:'No data entered on any trigger'});
   if(r.loc&&hasCF&&(r.capexCredit===''||r.capexCredit===undefined||r.capexCredit===null||isNaN(parseFloat(r.capexCredit))))
     all.push({key:'loc-capex', msg:'LOC property — CapEx credit not set. Re-import the income statement or enter the amount manually in the Adjustments column.'});
@@ -1526,6 +1527,7 @@ function moveRowToTab(fromType,id){
   if(!confirm(`Move "${r.name||'this property'}" from ${fromLabel} to ${toLabel}?`))return;
   state[fromType].rows=state[fromType].rows.filter(r=>r.id!==id);
   state[toType].rows.push({...r});
+  repairGroupMemberships();
   saveState();
   renderTable(fromType);
   renderTable(toType);
@@ -1625,7 +1627,7 @@ function saveWaitListEdit(){
   const currentNoi=document.getElementById('wl-edit-currentnoi').value.trim();
   const capital=document.getElementById('wl-edit-capital').value.trim();
   const notes=document.getElementById('wl-edit-notes').value.trim();
-  if(units!=='')r.units=units;
+  r.units=units;
   r.priorNoi=priorNoi;
   r.currentNoi=currentNoi;
   r.capital=capital;
@@ -1891,7 +1893,11 @@ function renderTable(type){
   if(rmBtn)rmBtn.disabled=n===0;
   const body=document.getElementById('body-'+type);
   const head=document.getElementById('head-'+type);
-  if(n===0){body.innerHTML=`<tr><td colspan="22" class="empty-state">No active properties — click "+ Add property".</td></tr>`;renderGroups(type);renderArchivedSection(type);return;}
+  if(n===0){
+    if(head) head.innerHTML='';
+    body.innerHTML=`<tr><td colspan="22" class="empty-state">No active properties — click "+ Add property".</td></tr>`;
+    renderGroups(type);renderArchivedSection(type);return;
+  }
 
   // ── Enrich rows with all computed values (needed for sorting + rendering) ───
   const enriched=activeRows.map(r=>{
@@ -2072,7 +2078,7 @@ function renderGroups(type){
     return`<div class="group-row"><div class="group-head">
       <input class="g-name-inp" value="${g.name}" onchange="setGroupName('${type}',${g.id},this.value)">
       <span style="font-size:12px;color:var(--text3)">Unreturned capital:</span>
-      <input class="g-cap-inp" type="text" value="${g.capital!==''?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="$0" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const v=parseFloat(this.value.replace(/[^0-9.]/g,''))||0;setGroupCap('${type}',${g.id},v);this.value=v?'$'+v.toLocaleString('en-US'):'';">
+      <input class="g-cap-inp" type="text" value="${g.capital!==''&&g.capital!==null&&g.capital!==undefined?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="enter amount" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const raw=this.value.replace(/[^0-9.]/g,'');const v=raw!==''?parseFloat(raw):'';setGroupCap('${type}',${g.id},v);this.value=v!==''&&!isNaN(v)?'$'+parseFloat(v).toLocaleString('en-US'):'';">
       <div class="group-result"><span style="color:var(--text3)">${fmt(totalAnnCF)} ann. CF · ${pct!==null?fmtP(pct)+' ann.':'—'}</span>${badge(cfTierFromPct(pct))}${(isNaN(k)||k===0)?'<span class="warn-pill" style="margin-left:6px">⚠ no capital set</span>':''}</div>
       <button class="del-btn" onclick="removeGroup('${type}',${g.id})">×</button>
     </div><div class="group-props">Properties: ${propNames}</div></div>`;
@@ -2356,7 +2362,14 @@ function resetToDefaults(){
   localStorage.removeItem(STORAGE_KEY);
   state.nonpgo = {rows:[],groups:[]};
   state.pgo    = {rows:[],groups:[]};
-  rowId = 0; groupId = 0;
+  state.settings = {belowNoiChecks:[
+    {id:1,label:'Asset management fee',patterns:[]},
+    {id:2,label:'Debt service',patterns:[]},
+    {id:3,label:'Capital expenses',patterns:[]}
+  ]};
+  rowId = 0; groupId = 0; checkId = 3;
+  sortState.nonpgo={col:null,dir:1};
+  sortState.pgo={col:null,dir:1};
   document.getElementById('pool-nonpgo').value = 60000;
   document.getElementById('pool-nonpgo-display').value = '$60,000';
   document.getElementById('pool-pgo').value = 30000;
@@ -2403,11 +2416,11 @@ function renderSyndicates(){
 
   const html = Object.values(allGroups).map(g => {
     const k = parseFloat(g.capital);
+    const annFactors = {nonpgo:getAnnFactor('nonpgo'), pgo:getAnnFactor('pgo')};
     const totalCF = g.properties.reduce((s,r) => {
-      return s + (parseFloat(getEffectiveCF(r))||0);
+      return s + (parseFloat(getEffectiveCF(r))||0) * (annFactors[r.tab]||annFactors.nonpgo);
     }, 0);
-    const annFactor = getAnnFactor('nonpgo'); // both tabs share the same period
-    const annualized = (!isNaN(k) && k!==0) ? (totalCF*annFactor/k)*100 : null;
+    const annualized = (!isNaN(k) && k!==0) ? (totalCF/k)*100 : null;
     const tier = cfTierFromPct(annualized);
     const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
 
@@ -2540,6 +2553,8 @@ function rollToNextPeriod(){
     document.getElementById('pend-'+type).value   = newEnd;
   });
 
+  sortState.nonpgo={col:null,dir:1};
+  sortState.pgo={col:null,dir:1};
   saveState();
   renderTable('nonpgo'); renderTable('pgo');
   renderGroups('nonpgo'); renderGroups('pgo');
