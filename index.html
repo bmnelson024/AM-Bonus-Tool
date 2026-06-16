@@ -616,6 +616,11 @@ const state = {
   }
 };
 let rowId=0, groupId=0, checkId=3, pendingImport=null;
+// cloudReady: true once the initial Supabase load attempt has completed.
+// seededFromDefault: true when localStorage was empty and we fell back to initFromSeed().
+// Together these prevent boot-time seed data from being written to localStorage / Supabase
+// and accidentally overwriting real saved data via the timestamp-comparison logic.
+let cloudReady = false, seededFromDefault = false;
 const sortState={nonpgo:{col:null,dir:1},pgo:{col:null,dir:1}};
 function setSortCol(type,col){
   if(sortState[type].col===col){sortState[type].dir*=-1;}
@@ -2340,12 +2345,20 @@ async function saveToSupabase(){
 }
 
 function saveState(){
-  // Write to localStorage immediately — no waiting for Supabase.
-  // This ensures data survives tab-close even if the cloud sync hasn't fired yet.
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload())); } catch(e){}
-  // Debounce the cloud sync (Supabase will update localStorage again on success)
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>saveToSupabase(), 1500);
+  // During a cold-start boot (localStorage was empty → initFromSeed ran), do NOT write
+  // to localStorage. Writing seed data with savedAt=now would make the timestamp
+  // comparison in loadFromSupabase think "local is newer" and push blank data to Supabase.
+  // Once cloudReady fires (Supabase load completed), seededFromDefault is cleared and
+  // normal localStorage writes resume.
+  if (!seededFromDefault) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload())); } catch(e){}
+  }
+  // Don't schedule Supabase saves until after the initial cloud load has completed —
+  // prevents a debounced seed write from racing the async Supabase fetch.
+  if (cloudReady) {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>saveToSupabase(), 1500);
+  }
 }
 
 function loadStateLocalFallback(){
@@ -2682,7 +2695,7 @@ function runRestoreWaitList(){
 // Load from localStorage first (instant, synchronous) as a fallback
 // Then async load from Supabase which will override if successful
 const localOk = loadStateLocalFallback();
-if (!localOk) initFromSeed();
+if (!localOk) { initFromSeed(); seededFromDefault = true; }
 runMigration7();
 runRestoreWaitList();
 renderTable('nonpgo');
@@ -2694,6 +2707,10 @@ updateDisposedBadge();
 
 // Async load from Supabase (overrides local fallback if successful)
 loadFromSupabase().then(ok => {
+  // Mark cloud load as complete — saveState() can now write localStorage and schedule Supabase saves.
+  // Clear seededFromDefault so any subsequent saveState() calls write real data normally.
+  cloudReady = true;
+  seededFromDefault = false;
   if(ok){
     runMigration7();
     runRestoreWaitList();
