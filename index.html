@@ -2289,7 +2289,22 @@ async function loadFromSupabase(){
     } catch(e){}
 
     if(localTime > sbTime){
-      // Local data is newer — keep it and push it up to Supabase
+      // Before syncing local → cloud, confirm local actually has real user data.
+      // Seed data from a buggy previous boot can appear "newer" (savedAt = now) without
+      // containing any occupancy / NOI / CF values. Pushing that would overwrite real Supabase data.
+      const hasRealData = [...state.nonpgo.rows, ...state.pgo.rows]
+        .some(r=>(r.occ!==''&&r.occ!==null&&r.occ!==undefined)
+                ||(r.currentNoi!==''&&r.currentNoi!==null&&r.currentNoi!==undefined)
+                ||(r.cf!==''&&r.cf!==null&&r.cf!==undefined));
+      if(!hasRealData){
+        // Local timestamp is newer but state is blank — apply Supabase real data instead.
+        setGhStatus('Local data is blank — loading from cloud…', 'info');
+        const ok = applyPayload(sbPayload);
+        if(ok){ setGhStatus('Loaded ✓  '+(sbPayload.savedAt?new Date(sbPayload.savedAt).toLocaleString():''), 'ok'); }
+        else   { setGhStatus('Bad data format', 'err'); }
+        return ok;
+      }
+      // Local really has user data and is newer — push it to Supabase.
       const diff = Math.round((localTime - sbTime) / 1000);
       setGhStatus('Local data is '+diff+'s newer — syncing to cloud…', 'info');
       clearTimeout(saveTimer);
@@ -2551,6 +2566,8 @@ function importSave(input){
       renderWaitList(); renderDisposedTab();
       updateWaitListBadge(); updateDisposedBadge();
       renderSettings();
+      // Write to localStorage immediately so data survives even if the Supabase write fails.
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload())); } catch(e){}
       setGhStatus('Backup loaded — saving to cloud…', 'info');
       clearTimeout(saveTimer);
       saveToSupabase();
