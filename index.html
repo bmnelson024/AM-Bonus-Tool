@@ -2455,9 +2455,12 @@ function renderSyndicates(){
     const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
 
     const propRows = g.properties.map(r => {
-      const cf = getEffectiveCF(r);
-      const cfNum = parseFloat(cf);
-      const cfDisplay = cf!=='' ? fmtAcct(cf) : '<span style="color:var(--text3);font-style:italic">not entered</span>';
+      const rawCf = getEffectiveCF(r);
+      const rawCfNum = parseFloat(rawCf);
+      const annFactor = annFactors[r.tab] || annFactors.nonpgo;
+      const cfNum = !isNaN(rawCfNum) ? rawCfNum * annFactor : NaN;
+      const cf = !isNaN(cfNum) ? cfNum : rawCf;
+      const cfDisplay = !isNaN(cfNum) ? fmtAcct(cfNum) : (rawCf!==''&&rawCf!==undefined&&rawCf!==null ? fmtAcct(rawCf) : '<span style="color:var(--text3);font-style:italic">not entered</span>');
       const cfClass = !isNaN(cfNum) ? (cfNum>0?'cf-positive':cfNum<0?'cf-negative':'') : '';
       const tabLabel = r.tab==='nonpgo'
         ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 6px;border-radius:10px;font-weight:500">Non-PGO</span>'
