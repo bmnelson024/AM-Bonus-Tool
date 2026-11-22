@@ -424,13 +424,6 @@
       </div>
     </div>
     <div id="archived-nonpgo"></div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Syndication groups (pooled cash flow)</span>
-        <button class="btn-add" onclick="addGroup('nonpgo')">+ Add group</button>
-      </div>
-      <div id="groups-nonpgo" style="padding:12px"></div>
-    </div>
   </div>
 
   <!-- PGO -->
@@ -476,13 +469,6 @@
       </div>
     </div>
     <div id="archived-pgo"></div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Syndication groups (pooled cash flow)</span>
-        <button class="btn-add" onclick="addGroup('pgo')">+ Add group</button>
-      </div>
-      <div id="groups-pgo" style="padding:12px"></div>
-    </div>
   </div>
 
   <!-- WAIT LIST -->
@@ -497,6 +483,20 @@
 
   <!-- SYNDICATION GROUPS -->
   <div id="tab-syndicates" style="display:none">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Syndication groups (pooled cash flow)</span>
+          <span class="card-meta" id="count-groups" style="margin-left:10px"></span>
+        </div>
+        <button class="btn-add" onclick="addGroup()">+ Add group</button>
+      </div>
+      <div style="padding:10px 16px;font-size:12px;color:var(--text2);line-height:1.5">
+        One list of groups shared by the Non-PGO and PGO tabs. Assign properties to a group from the
+        "Syndication group" column on either tab. Each group's CF tier pools the annualized adjusted cash flow
+        of every active property in it (both tabs) against the group's unreturned capital.
+      </div>
+    </div>
     <div id="synd-content"></div>
   </div>
 
@@ -605,8 +605,9 @@ const ICON_CHECKMARK= '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor
 
 // ─── state ────────────────────────────────────────────────────────────────────
 const state = {
-  nonpgo:{rows:[],groups:[]},
+  nonpgo:{rows:[],groups:[]},   // per-tab .groups kept empty — legacy only
   pgo:{rows:[],groups:[]},
+  groups:[],                    // single shared list of syndication groups
   settings:{
     belowNoiChecks:[
       {id:1,label:'Asset management fee',patterns:[]},
@@ -621,16 +622,46 @@ let rowId=0, groupId=0, checkId=3, pendingImport=null;
 // Together these prevent boot-time seed data from being written to localStorage / Supabase
 // and accidentally overwriting real saved data via the timestamp-comparison logic.
 let cloudReady = false, seededFromDefault = false;
-const sortState={nonpgo:{col:null,dir:1},pgo:{col:null,dir:1}};
+const sortState={nonpgo:{col:'name',dir:1},pgo:{col:'name',dir:1}};
 function setSortCol(type,col){
   if(sortState[type].col===col){sortState[type].dir*=-1;}
   else{sortState[type].col=col;sortState[type].dir=1;}
   renderTable(type);
 }
 
+// Merge groups into the single shared state.groups list (deduped by name).
+// Sources, in priority order: a top-level groups array, then legacy per-tab arrays.
+// For duplicate names, the first non-blank capital wins.
+function consolidateGroups(src){
+  const merged=[], byName={};
+  const add=g=>{
+    if(!g||!g.name) return;
+    const name=String(g.name);
+    const cap=(g.capital===undefined||g.capital===null)?'':g.capital;
+    if(!byName[name]){
+      const ng={id:(g.id&&!merged.some(x=>x.id===g.id))?g.id:++groupId,name,capital:cap};
+      groupId=Math.max(groupId,ng.id);
+      byName[name]=ng; merged.push(ng);
+    } else if((byName[name].capital===''||byName[name].capital===null)&&cap!==''){
+      byName[name].capital=cap;
+    }
+  };
+  if(src&&Array.isArray(src.groups)&&src.groups.length){
+    src.groups.forEach(add);
+  } else {
+    ['nonpgo','pgo'].forEach(t=>((src&&src[t]&&src[t].groups)||[]).forEach(add));
+  }
+  state.groups=merged;
+  state.nonpgo.groups=[];
+  state.pgo.groups=[];
+}
+function sortedGroups(){
+  return [...state.groups].sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true,sensitivity:'base'}));
+}
+
 function initFromSeed(){
+  consolidateGroups({nonpgo:{groups:SEED.nonpgo.groups},pgo:{groups:SEED.pgo.groups}});
   ['nonpgo','pgo'].forEach(type=>{
-    SEED[type].groups.forEach(g=>state[type].groups.push({id:++groupId,name:g.name,capital:g.capital}));
     SEED[type].rows.forEach(r=>state[type].rows.push({id:++rowId,...r,occ:'',occMonths:[],currentNoi:'',cf:'',adjustments:'',capexCredit:'',incomeFilePath:'',loc:r.loc||false,platform:r.platform||'buildium',imported:false,notes:'',status:'active',acquiredDate:'',soldDate:'',belowNoiMissing:[],dismissedWarnings:[]}));
   });
 }
@@ -676,22 +707,9 @@ function buildCFMap(type){
   // Use per-tab annualization factors so cross-tab group pooling is correct
   // even if the two tabs happen to have different period lengths.
   const annFactors={nonpgo:getAnnFactor('nonpgo'),pgo:getAnnFactor('pgo')};
-  // Collect capital from ALL tabs so cross-tab groups resolve correctly.
-  const allGroupCapital={};
-  ['nonpgo','pgo'].forEach(t=>{
-    state[t].groups.forEach(g=>{
-      if(!allGroupCapital[g.name]&&g.capital) allGroupCapital[g.name]=g.capital;
-    });
-  });
-  // Build the map from ALL groups across both tabs.
-  const allGroupsSeen={};
-  ['nonpgo','pgo'].forEach(t=>{
-    state[t].groups.forEach(g=>{
-      if(!allGroupsSeen[g.name]) allGroupsSeen[g.name]=g;
-    });
-  });
-  Object.values(allGroupsSeen).forEach(g=>{
-    const k=parseFloat(allGroupCapital[g.name]||g.capital);
+  // Groups live in one shared list (state.groups); properties from both tabs pool together.
+  state.groups.forEach(g=>{
+    const k=parseFloat(g.capital);
     if(!isNaN(k)&&k!==0){
       // Annualize each property's CF using its own tab's factor before pooling.
       const total=['nonpgo','pgo'].reduce((sum,t)=>{
@@ -1012,7 +1030,7 @@ function showOccDetail(rowId, type){
 function getRowWarnings(type, rowId){
   const r=state[type].rows.find(r=>r.id===rowId);
   if(!r) return [];
-  const groupNames=state[type].groups.map(g=>g.name);
+  const groupNames=state.groups.map(g=>g.name);
   const dismissed=new Set(r.dismissedWarnings||[]);
   const all=[];
   if(!r.name||r.name.trim()==='')
@@ -1492,10 +1510,36 @@ function addRow(type){state[type].rows.push({id:++rowId,name:'',units:'',occ:'',
 function removeLastRow(type){const active=state[type].rows.filter(r=>!r.status||r.status==='active');if(active.length===0)return;const last=active[active.length-1];if(!confirm('Remove "'+(last.name||'unnamed property')+'"? This cannot be undone.'))return;state[type].rows=state[type].rows.filter(r=>r.id!==last.id);saveState();renderTable(type);}
 function removeRow(type,id){state[type].rows=state[type].rows.filter(r=>r.id!==id);saveState();renderTable(type);renderWaitList();renderDisposedTab();updateWaitListBadge();updateDisposedBadge();}
 function setRow(type,id,field,val){const r=state[type].rows.find(r=>r.id===id);if(r){r[field]=val;saveState();renderTable(type);}}
-function addGroup(type){state[type].groups.push({id:++groupId,name:'New Group',capital:''});saveState();renderGroups(type);renderTable(type);}
-function removeGroup(type,id){const g=state[type].groups.find(g=>g.id===id);if(g){['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===g.name)r.group='';}));['nonpgo','pgo'].forEach(t=>{state[t].groups=state[t].groups.filter(x=>x.name!==g.name);});}else{state[type].groups=state[type].groups.filter(g=>g.id!==id);}saveState();renderGroups('nonpgo');renderGroups('pgo');renderTable('nonpgo');renderTable('pgo');renderWaitList();renderDisposedTab();}
-function setGroupName(type,id,val){const g=state[type].groups.find(g=>g.id===id);const old=g?g.name:'';['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===old)r.group=val;}));if(g)g.name=val;saveState();renderGroups(type);renderTable('nonpgo');renderTable('pgo');}
-function setGroupCap(type,id,val){const g=state[type].groups.find(g=>g.id===id);if(g){g.capital=val;saveState();renderGroups(type);renderTable(type);}}
+function refreshGroupViews(){renderTable('nonpgo');renderTable('pgo');renderSyndicates();renderWaitList();renderDisposedTab();}
+function addGroup(){
+  let name='New Group',i=2;
+  while(state.groups.some(g=>g.name===name)) name='New Group '+(i++);
+  state.groups.push({id:++groupId,name,capital:''});
+  saveState();refreshGroupViews();
+  const inp=document.querySelector(`.g-name-inp[data-gid="${groupId}"]`);
+  if(inp){inp.focus();inp.select();}
+}
+function removeGroup(id){
+  const g=state.groups.find(g=>g.id===id);if(!g)return;
+  const members=['nonpgo','pgo'].reduce((n,t)=>n+state[t].rows.filter(r=>r.group===g.name).length,0);
+  if(!confirm(`Delete syndication group "${g.name}"?`+(members?`\n\n${members} propert${members===1?'y':'ies'} will be set back to standalone.`:''))) return;
+  ['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===g.name)r.group='';}));
+  state.groups=state.groups.filter(x=>x.id!==id);
+  saveState();refreshGroupViews();
+}
+function setGroupName(id,val){
+  const g=state.groups.find(g=>g.id===id);if(!g)return;
+  const name=String(val||'').trim();
+  if(!name||state.groups.some(x=>x.id!==id&&x.name===name)){
+    alert(name?`A group named "${name}" already exists.`:'Group name cannot be blank.');
+    renderSyndicates();return;
+  }
+  const old=g.name;
+  ['nonpgo','pgo'].forEach(t=>state[t].rows.forEach(r=>{if(r.group===old)r.group=name;}));
+  g.name=name;
+  saveState();refreshGroupViews();
+}
+function setGroupCap(id,val){const g=state.groups.find(g=>g.id===id);if(g){g.capital=val;saveState();refreshGroupViews();}}
 function setLOC(type,id,checked){const r=state[type].rows.find(r=>r.id===id);if(!r)return;r.loc=checked;if(!checked)r.capexCredit='';saveState();renderTable(type);}
 
 // ─── archive / recently acquired / sold ───────────────────────────────────────
@@ -1879,7 +1923,7 @@ function renderTable(type){
   const n=activeRows.length, rate=n>0?pool/n:0;
   const cfMap=buildCFMap(type);
   const annFactor=getAnnFactor(type);
-  const groupNames=state[type].groups.map(g=>g.name);
+  const groupNames=sortedGroups().map(g=>g.name);
   const fb=document.getElementById('fbar-'+type);
 
   // ── Formula bar + top-level warnings ───────────────────────────────────────
@@ -1903,7 +1947,7 @@ function renderTable(type){
   if(n===0){
     if(head) head.innerHTML='';
     body.innerHTML=`<tr><td colspan="22" class="empty-state">No active properties — click "+ Add property".</td></tr>`;
-    renderGroups(type);renderArchivedSection(type);return;
+    renderArchivedSection(type);return;
   }
 
   // ── Enrich rows with all computed values (needed for sorting + rendering) ───
@@ -1954,7 +1998,7 @@ function renderTable(type){
 
   const rows=enriched.map(row=>{
     const{_ot:ot,_nt:nt,_ct:ct,_ob:ob,_nb:nb,_cb:cb,_b:b,_effectiveCF:effectiveCF}=row;
-    const groupOpts=`<option value="">— standalone —</option>`+groupNames.map(g=>`<option value="${g}" ${row.group===g?'selected':''}>${g}</option>`).join('');
+    const groupOpts=`<option value="">— standalone —</option>`+groupNames.map(g=>`<option value="${esc(g)}" ${row.group===g?'selected':''}>${esc(g)}</option>`).join('');
     const capDisplay=row.capital!==''&&row.capital!==null?fmtAcct(row.capital):'';
     const capCell=row.group?'<span style="font-size:11px;color:var(--text3)">see group</span>':editCell('<span>'+(capDisplay||'')+'</span>',row.capital,type,row.id,'capital','0');
     const priorVal=row.priorNoi!==''&&row.priorNoi!==null?row.priorNoi:'';
@@ -2059,37 +2103,7 @@ function renderTable(type){
   const capped=totalBonus>pool, displayTotal=Math.min(totalBonus,pool);
   rows.push(`<tr class="total-row-tbl"><td colspan="19" style="text-align:right;font-size:12px;color:var(--accent);padding-right:12px">${capped?`<span class="cap-warn">⚠ Uncapped: ${fmtD(totalBonus,2)} → capped at ${fmt(pool)}</span>&nbsp;&nbsp;`:''}Total earned</td><td class="bonus-val">${fmtD(displayTotal,2)}</td><td></td><td></td></tr>`);
   body.innerHTML=rows.join('');
-  renderGroups(type);
   renderArchivedSection(type);
-}
-
-// ─── render groups ────────────────────────────────────────────────────────────
-function renderGroups(type){
-  const cont=document.getElementById('groups-'+type);
-  if(!state[type].groups.length){cont.innerHTML=`<p class="empty-state">No syndication groups.</p>`;return;}
-  // Build cross-tab capital map so shared groups (e.g. MWP 1) use consistent capital
-  const allGroupCapital={};
-  ['nonpgo','pgo'].forEach(t=>state[t].groups.forEach(g=>{if(!allGroupCapital[g.name]&&g.capital)allGroupCapital[g.name]=g.capital;}));
-  const annFactors={nonpgo:getAnnFactor('nonpgo'),pgo:getAnnFactor('pgo')};
-  cont.innerHTML=state[type].groups.map(g=>{
-    // Sum annualized CF across BOTH tabs using each tab's own factor — matches buildCFMap.
-    const totalAnnCF=['nonpgo','pgo'].reduce((sum,t)=>{
-      const af=annFactors[t];
-      return sum+state[t].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active')).reduce((s,r)=>s+(parseFloat(getEffectiveCF(r))||0)*af,0);
-    },0);
-    // Display only active properties in THIS tab for the panel list
-    const props=state[type].rows.filter(r=>r.group===g.name&&(!r.status||r.status==='active'));
-    const k=parseFloat(allGroupCapital[g.name]||g.capital);
-    const pct=(!isNaN(k)&&k!==0)?(totalAnnCF/k*100):null;
-    const propNames=props.map(p=>p.name||'(unnamed)').join(', ')||'No properties assigned';
-    return`<div class="group-row"><div class="group-head">
-      <input class="g-name-inp" value="${g.name}" onchange="setGroupName('${type}',${g.id},this.value)">
-      <span style="font-size:12px;color:var(--text3)">Unreturned capital:</span>
-      <input class="g-cap-inp" type="text" value="${g.capital!==''&&g.capital!==null&&g.capital!==undefined?'$'+parseFloat(g.capital).toLocaleString('en-US'):''}" placeholder="enter amount" onfocus="this.value=this.value.replace(/[^0-9.]/g,'')" onblur="const raw=this.value.replace(/[^0-9.]/g,'');const v=raw!==''?parseFloat(raw):'';setGroupCap('${type}',${g.id},v);this.value=v!==''&&!isNaN(v)?'$'+parseFloat(v).toLocaleString('en-US'):'';">
-      <div class="group-result"><span style="color:var(--text3)">${fmt(totalAnnCF)} ann. CF · ${pct!==null?fmtP(pct)+' ann.':'—'}</span>${badge(cfTierFromPct(pct))}${(isNaN(k)||k===0)?'<span class="warn-pill" style="margin-left:6px">⚠ no capital set</span>':''}</div>
-      <button class="del-btn" onclick="removeGroup('${type}',${g.id})">×</button>
-    </div><div class="group-props">Properties: ${propNames}</div></div>`;
-  }).join('');
 }
 
 // ─── results ──────────────────────────────────────────────────────────────────
@@ -2196,7 +2210,11 @@ function buildPayload(){
   return {
     version: 'am_bonus_v2',
     savedAt: new Date().toISOString(),
-    state,
+    // Groups are saved once at state.groups. A copy is also mirrored into each tab's
+    // legacy .groups array so an older copy of this tool can still read the save.
+    state: {...state,
+      nonpgo:{...state.nonpgo, groups:state.groups.map(g=>({...g}))},
+      pgo:   {...state.pgo,    groups:state.groups.map(g=>({...g}))}},
     rowId, groupId,
     pools: {
       nonpgo: document.getElementById('pool-nonpgo').value,
@@ -2237,6 +2255,8 @@ function applyPayload(payload){
   });
   rowId   = payload.rowId   || 0;
   groupId = payload.groupId || 0;
+  // Merge old per-tab group lists (or load the shared list) into state.groups.
+  consolidateGroups(payload.state);
   if(payload.pools){
     ['nonpgo','pgo'].forEach(type=>{
       const v = parseFloat(payload.pools[type]) || (type==='nonpgo'?60000:30000);
@@ -2393,14 +2413,15 @@ function resetToDefaults(){
   localStorage.removeItem(STORAGE_KEY);
   state.nonpgo = {rows:[],groups:[]};
   state.pgo    = {rows:[],groups:[]};
+  state.groups = [];
   state.settings = {belowNoiChecks:[
     {id:1,label:'Asset management fee',patterns:[]},
     {id:2,label:'Debt service',patterns:[]},
     {id:3,label:'Capital expenses',patterns:[]}
   ]};
   rowId = 0; groupId = 0; checkId = 3;
-  sortState.nonpgo={col:null,dir:1};
-  sortState.pgo={col:null,dir:1};
+  sortState.nonpgo={col:'name',dir:1};
+  sortState.pgo={col:'name',dir:1};
   document.getElementById('pool-nonpgo').value = 60000;
   document.getElementById('pool-nonpgo-display').value = '$60,000';
   document.getElementById('pool-pgo').value = 30000;
@@ -2411,7 +2432,6 @@ function resetToDefaults(){
   document.getElementById('pend-pgo').value      = '2026-03';
   initFromSeed();
   renderTable('nonpgo'); renderTable('pgo');
-  renderGroups('nonpgo'); renderGroups('pgo');
   renderSyndicates();
   updateWaitListBadge();
   updateDisposedBadge();
@@ -2422,99 +2442,78 @@ function resetToDefaults(){
 function renderSyndicates(){
   const cont = document.getElementById('synd-content');
   if (!cont) return;
+  const countEl = document.getElementById('count-groups');
+  if (countEl) countEl.textContent = state.groups.length + ' group' + (state.groups.length===1?'':'s');
 
-  const allGroups = {};
-
-  ['nonpgo','pgo'].forEach(type => {
-    state[type].groups.forEach(g => {
-      if (!allGroups[g.name]) {
-        allGroups[g.name] = { name: g.name, capital: g.capital, properties: [] };
-      } else if (g.capital && !allGroups[g.name].capital) {
-        allGroups[g.name].capital = g.capital;
-      }
-    });
-    state[type].rows.forEach(r => {
-      if (r.group && allGroups[r.group] && (!r.status||r.status==='active')) {
-        allGroups[r.group].properties.push({ ...r, tab: type });
-      }
-    });
-  });
-
-  if (!Object.keys(allGroups).length) {
-    cont.innerHTML = '<p class="empty-state">No syndication groups defined yet.</p>';
+  if (!state.groups.length) {
+    cont.innerHTML = '<p class="empty-state">No syndication groups yet — click "+ Add group".</p>';
     return;
   }
 
-  const html = Object.values(allGroups).map(g => {
+  const annFactors = {nonpgo:getAnnFactor('nonpgo'), pgo:getAnnFactor('pgo')};
+
+  const html = sortedGroups().map(g => {
+    const properties = [];
+    ['nonpgo','pgo'].forEach(type => state[type].rows.forEach(r => {
+      if (r.group === g.name && (!r.status||r.status==='active')) properties.push({ ...r, tab: type });
+    }));
     const k = parseFloat(g.capital);
-    const annFactors = {nonpgo:getAnnFactor('nonpgo'), pgo:getAnnFactor('pgo')};
-    const totalCF = g.properties.reduce((s,r) => {
-      return s + (parseFloat(getEffectiveCF(r))||0) * (annFactors[r.tab]||annFactors.nonpgo);
-    }, 0);
+    const totalCF = properties.reduce((s,r) => s + (parseFloat(getEffectiveCF(r))||0) * (annFactors[r.tab]||annFactors.nonpgo), 0);
     const annualized = (!isNaN(k) && k!==0) ? (totalCF/k)*100 : null;
     const tier = cfTierFromPct(annualized);
-    const capDisplay = k ? '$'+k.toLocaleString('en-US') : '—';
+    const capVal = (g.capital!==''&&g.capital!==null&&g.capital!==undefined&&!isNaN(k)) ? '$'+k.toLocaleString('en-US') : '';
+    const units = properties.reduce((s,r)=>s+(parseFloat(r.units)||0),0);
 
-    const propRows = g.properties.map(r => {
+    const propRows = properties.map(r => {
       const rawCf = getEffectiveCF(r);
       const rawCfNum = parseFloat(rawCf);
-      const annFactor = annFactors[r.tab] || annFactors.nonpgo;
-      const cfNum = !isNaN(rawCfNum) ? rawCfNum * annFactor : NaN;
-      const cf = !isNaN(cfNum) ? cfNum : rawCf;
-      const cfDisplay = !isNaN(cfNum) ? fmtAcct(cfNum) : (rawCf!==''&&rawCf!==undefined&&rawCf!==null ? fmtAcct(rawCf) : '<span style="color:var(--text3);font-style:italic">not entered</span>');
+      const cfNum = !isNaN(rawCfNum) ? rawCfNum * (annFactors[r.tab]||annFactors.nonpgo) : NaN;
+      const cfDisplay = !isNaN(cfNum) ? fmtAcct(cfNum) : '<span style="color:var(--text3);font-style:italic">not entered</span>';
       const cfClass = !isNaN(cfNum) ? (cfNum>0?'cf-positive':cfNum<0?'cf-negative':'') : '';
       const tabLabel = r.tab==='nonpgo'
         ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 6px;border-radius:10px;font-weight:500">Non-PGO</span>'
         : '<span style="font-size:10px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:10px;font-weight:500">PGO</span>';
-      const noiTierBadge = badge(noiTier(r.priorNoi, r.currentNoi));
-      const occTierBadge = badge(occTier(r.occ));
-
       return `<tr>
-        <td style="padding-left:20px">${r.name||'<em style="color:var(--text3)">unnamed</em>'}</td>
+        <td style="padding-left:20px">${r.name?esc(r.name):'<em style="color:var(--text3)">unnamed</em>'}</td>
         <td>${tabLabel}</td>
-        <td>${occTierBadge}</td>
-        <td>${noiTierBadge}</td>
+        <td>${r.units||''}</td>
+        <td>${badge(occTier(r.occ))}</td>
+        <td>${badge(noiTier(r.priorNoi, r.currentNoi))}</td>
         <td class="${cfClass}" style="font-family:'DM Mono',monospace;font-size:12px">${cfDisplay}</td>
       </tr>`;
     }).join('');
 
-    const noProps = g.properties.length === 0;
-
+    const cfCls = totalCF>0?'cf-positive':totalCF<0?'cf-negative':'';
     return `<div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div>
-          <span class="card-title">${g.name}</span>
-          <span style="font-size:12px;color:var(--text3);margin-left:12px">Unreturned capital: ${capDisplay}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span style="font-size:12px;color:var(--text2);font-family:'DM Mono',monospace">
-            Combined CF: <span class="${totalCF>0?'cf-positive':totalCF<0?'cf-negative':''}">${fmtAcct(totalCF)||'—'}</span>
-          </span>
-          <span style="font-size:12px;color:var(--text2)">
-            ${annualized!==null ? fmtP(annualized)+' ann.' : '—'}
-          </span>
+      <div class="group-head" style="border-bottom:1px solid var(--border)">
+        <input class="g-name-inp" data-gid="${g.id}" style="width:260px" value="${esc(g.name)}" onchange="setGroupName(${g.id},this.value)" title="Rename group (updates every assigned property)">
+        <span style="font-size:12px;color:var(--text3)">Unreturned capital:</span>
+        <input class="g-cap-inp" type="text" value="${capVal}" placeholder="enter amount"
+          onfocus="this.value=this.value.replace(/[^0-9.\-]/g,'')"
+          onblur="const raw=this.value.replace(/[^0-9.\-]/g,'');const v=raw!==''&&!isNaN(parseFloat(raw))?parseFloat(raw):'';setGroupCap(${g.id},v);">
+        <div class="group-result">
+          <span style="color:var(--text3)">${properties.length} propert${properties.length===1?'y':'ies'}${units?' · '+units.toLocaleString('en-US')+' units':''}</span>
+          <span style="font-family:'DM Mono',monospace">Ann. CF: <span class="${cfCls}">${fmtAcct(totalCF)||'—'}</span></span>
+          <span>${annualized!==null ? fmtP(annualized)+' ann.' : '—'}</span>
           ${badge(tier)}
+          ${(isNaN(k)||k===0)?'<span class="warn-pill">⚠ no capital set</span>':''}
         </div>
+        <button class="del-btn" onclick="removeGroup(${g.id})" title="Delete group">×</button>
       </div>
-      ${noProps
-        ? '<p class="empty-state">No properties assigned to this group.</p>'
+      ${properties.length === 0
+        ? '<p class="empty-state">No properties assigned. Assign them from the "Syndication group" column on the Non-PGO or PGO tab.</p>'
         : `<div class="tbl-wrap"><table>
             <thead><tr>
-              <th>Property</th>
-              <th>Tab</th>
-              <th>Occ tier</th>
-              <th>NOI tier</th>
-              <th>Ann. adj cash flow</th>
+              <th>Property</th><th>Tab</th><th>Units</th><th>Occ tier</th><th>NOI tier</th><th>Ann. adj cash flow</th>
             </tr></thead>
             <tbody>
               ${propRows}
               <tr style="background:var(--surface2);font-weight:600">
-                <td colspan="4" style="text-align:right;padding-right:12px;font-size:12px;color:var(--text2)">Combined adjusted cash flow</td>
-                <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600" class="${totalCF>0?'cf-positive':totalCF<0?'cf-negative':''}">${fmtAcct(totalCF)||'—'}</td>
+                <td colspan="5" style="text-align:right;padding-right:12px;font-size:12px;color:var(--text2)">Combined annualized adjusted cash flow</td>
+                <td style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600" class="${cfCls}">${fmtAcct(totalCF)||'—'}</td>
               </tr>
             </tbody>
-          </table></div>`
-      }
+          </table></div>`}
     </div>`;
   }).join('');
 
@@ -2565,7 +2564,6 @@ function importSave(input){
       runMigration7();
       runRestoreWaitList();
       renderTable('nonpgo'); renderTable('pgo');
-      renderGroups('nonpgo'); renderGroups('pgo');
       renderSyndicates();
       renderWaitList(); renderDisposedTab();
       updateWaitListBadge(); updateDisposedBadge();
@@ -2629,11 +2627,11 @@ function rollToNextPeriod(){
     document.getElementById('pend-'+type).value   = newEnd;
   });
 
-  sortState.nonpgo={col:null,dir:1};
-  sortState.pgo={col:null,dir:1};
+  sortState.nonpgo={col:'name',dir:1};
+  sortState.pgo={col:'name',dir:1};
   saveState();
   renderTable('nonpgo'); renderTable('pgo');
-  renderGroups('nonpgo'); renderGroups('pgo');
+  renderSyndicates();
   alert(`Rolled forward to ${newStart} → ${newEnd}. Prior NOI updated.`);
 }
 
@@ -2650,48 +2648,16 @@ function runMigration7(){
     return;
   }
 
-  // Copy any groups referenced by moving rows that don't yet exist in pgo
-  const pgoGroupNames=new Set(state.pgo.groups.map(g=>g.name));
-  toMove.forEach(r=>{
-    if(r.group && !pgoGroupNames.has(r.group)){
-      const src=state.nonpgo.groups.find(g=>g.name===r.group);
-      if(src){
-        state.pgo.groups.push({id:++groupId, name:src.name, capital:src.capital});
-        pgoGroupNames.add(src.name);
-      }
-    }
-  });
-
   // Move the rows
   const ids=new Set(toMove.map(r=>r.id));
   state.nonpgo.rows=state.nonpgo.rows.filter(r=>!ids.has(r.id));
   toMove.forEach(r=>state.pgo.rows.push({...r}));
 
-  // Clean up any nonpgo groups that are now unused
-  const usedInNonpgo=new Set(state.nonpgo.rows.filter(r=>r.group).map(r=>r.group));
-  state.nonpgo.groups=state.nonpgo.groups.filter(g=>usedInNonpgo.has(g.name));
-
   saveState();
 }
 
-// Ensure every row's group name exists in its own tab's groups array.
-// If the group exists in the other tab, copy it over.
-function repairGroupMemberships(){
-  let changed=false;
-  ['nonpgo','pgo'].forEach(type=>{
-    const other=type==='nonpgo'?'pgo':'nonpgo';
-    const myGroupNames=new Set(state[type].groups.map(g=>g.name));
-    state[type].rows.filter(r=>r.group&&!myGroupNames.has(r.group)).forEach(r=>{
-      const src=state[other].groups.find(g=>g.name===r.group);
-      if(src){
-        state[type].groups.push({id:++groupId, name:src.name, capital:src.capital});
-        myGroupNames.add(src.name);
-        changed=true;
-      }
-    });
-  });
-  if(changed) saveState();
-}
+// Groups are a single shared list now, so there is nothing to repair between tabs.
+function repairGroupMemberships(){}
 
 // ─── restore 3 lost wait-list properties ─────────────────────────────────────
 const RESTORE_WAITLIST = ['Doral Apartments','500 Willow','127 Pearl'];
@@ -2721,8 +2687,7 @@ runMigration7();
 runRestoreWaitList();
 renderTable('nonpgo');
 renderTable('pgo');
-renderGroups('nonpgo');
-renderGroups('pgo');
+renderSyndicates();
 updateWaitListBadge();
 updateDisposedBadge();
 
@@ -2737,8 +2702,6 @@ loadFromSupabase().then(ok => {
     runRestoreWaitList();
     renderTable('nonpgo');
     renderTable('pgo');
-    renderGroups('nonpgo');
-    renderGroups('pgo');
     renderSyndicates();
     updateWaitListBadge();
     updateDisposedBadge();
