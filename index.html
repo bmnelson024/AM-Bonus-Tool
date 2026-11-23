@@ -326,8 +326,25 @@
           <div class="modal-val" id="modal-noi">—</div>
         </div>
         <div class="modal-field">
-          <label>Cash flow — Net Income (raw)</label>
+          <label>Net Income (raw)</label>
           <div class="modal-val" id="modal-cf">—</div>
+        </div>
+        <!-- Mortgage principal — AppFolio only. AppFolio books principal below Net Income. -->
+        <div id="modal-principal-section" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em">Below Net Income — principal &amp; CapEx</span>
+            <span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:1px 7px;border-radius:10px;font-weight:500">AppFolio</span>
+          </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.5">
+            Rows marked Principal or CapEx are added to Net Income to get cash flow. Rows are pre-marked from the ledger names in Settings
+            (and CapEx keywords like "capital improvements"). If this property uses a different ledger name, mark it here — the name is saved to Settings for future imports.
+          </div>
+          <div id="modal-principal-warn" class="modal-warn" style="display:none;margin-bottom:10px"></div>
+          <div id="modal-principal-lines" style="margin-bottom:10px;font-size:12px;font-family:'DM Mono',monospace"></div>
+        </div>
+        <div class="modal-field" id="modal-cf-final-field" style="display:none">
+          <label>Cash flow used (Net Income + principal + CapEx below NI)</label>
+          <div class="modal-val" id="modal-cf-final">—</div>
         </div>
         <div id="modal-mismatch-wrap" style="display:none">
           <div class="modal-warn" id="modal-mismatch" style="display:flex;gap:8px;align-items:flex-start"></div>
@@ -508,6 +525,15 @@
 
   <!-- SETTINGS -->
   <div id="tab-settings" style="display:none">
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div>
+          <span class="card-title">Below Net Income ledgers (AppFolio)</span>
+          <span style="font-size:12px;color:var(--text3);margin-left:12px">AppFolio rows below Net Income with these exact names (case-insensitive) are added to cash flow</span>
+        </div>
+      </div>
+      <div id="settings-principal" style="padding:20px"></div>
+    </div>
     <div class="card">
       <div class="card-header">
         <div>
@@ -609,6 +635,8 @@ const state = {
   pgo:{rows:[],groups:[]},
   groups:[],                    // single shared list of syndication groups
   settings:{
+    principalLedgers:['Mortgage Payable'],
+    capexLedgers:[],
     belowNoiChecks:[
       {id:1,label:'Asset management fee',patterns:[]},
       {id:2,label:'Debt service',patterns:[]},
@@ -1047,6 +1075,10 @@ function getRowWarnings(type, rowId){
     all.push({key:'no-capital', msg:'No unreturned capital set — the CF tier will always be Miss for this property.'});
   if(r.group&&!groupNames.includes(r.group))
     all.push({key:'group-missing', msg:`Syndication group "${r.group}" no longer exists — please re-assign`});
+  if(r.principalMissing)
+    all.push({key:'principal-missing', msg:'Mortgage interest found but no row below Net Income was marked as principal — re-import and mark it (the ledger name is saved to Settings).'});
+  else if(r.imported&&String(r.platform||'').toLowerCase()==='appfolio'&&hasCF&&r.belowNiCapex===undefined)
+    all.push({key:'principal-reimport', msg:'Imported before the below-Net-Income adjustment — re-import the income statement so principal and CapEx below Net Income are included in cash flow.'});
   if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length)
     r.belowNoiMissing.forEach(lbl=>all.push({key:`below-noi:${lbl}`, msg:`"${lbl}" not found below NOI in the imported income statement`}));
   return all.filter(w=>!dismissed.has(w.key));
@@ -1284,6 +1316,13 @@ function parseStatement(file, type, rid){
 
       const capexLines=[];
       let inCapexSection=false;
+      // Mortgage principal (AppFolio): rows below Net Income, and whether mortgage interest exists above it
+      let passedNI=false, hasMortgageInterest=false;
+      const belowNiRows=[];
+      const CASH_SUMMARY=['cash flow','beginning cash','beginning cash + cash flow','actual ending cash','ending cash'];
+      const toSet=a=>new Set((a||[]).map(n=>String(n).trim().toLowerCase()).filter(Boolean));
+      const ledgerSet=toSet(state.settings&&state.settings.principalLedgers);
+      const capexLedgerSet=toSet(state.settings&&state.settings.capexLedgers);
       // Below-NOI line item detection
       let passedNOI=false;
       const checks=state.settings&&state.settings.belowNoiChecks||[];
@@ -1304,7 +1343,19 @@ function parseStatement(file, type, rid){
                       (label.startsWith('net income') && label.length < 30);
 
         if(isNOI && noi===null){ noi=sumRow(row); passedNOI=true; }
-        if(isNI  && cf===null)   cf=sumRow(row);
+        if(!passedNI && (label.includes('mortgage interest')||label.includes('loan interest')||label==='interest expense') && rowHasValues(row))
+          hasMortgageInterest=true;
+        if(isNI  && cf===null){  cf=sumRow(row); passedNI=true; continue; }
+        if(passedNI && CASH_SUMMARY.includes(label)) passedNI='done';
+        if(passedNI===true && label && !label.startsWith('total') && !label.startsWith('net ') && rowHasValues(row)){
+          const amt=sumRow(row);
+          if(amt!==null && amt!==0){
+            const lbl=String(row[0]||'').trim();
+            const key=lbl.toLowerCase();
+            const kind=ledgerSet.has(key)?'principal':(capexLedgerSet.has(key)||isCapexKeyword(key))?'capex':'';
+            belowNiRows.push({label:lbl, amount:amt, kind});
+          }
+        }
 
         // Check each configured category against rows below the NOI line
         if(passedNOI){
@@ -1316,6 +1367,8 @@ function parseStatement(file, type, rid){
           });
         }
 
+        // AppFolio: rows below Net Income are handled by the below-NI selector above, not here
+        if(passedNI && platform==='Appfolio') continue;
         // CapEx section header: keyword match with no values → enter collect mode
         if(isCapexKeyword(label) && !rowHasValues(row)){
           inCapexSection=true;
@@ -1349,7 +1402,8 @@ function parseStatement(file, type, rid){
       // All categories with patterns (for display in modal)
       const belowNoiResults=checks.filter(c=>c.patterns.length>0).map(c=>({...c,found:belowNoiFound[c.id]||false}));
 
-      pendingImport={type,rowId:rid,noi,cf,capexLines,capexTotal,propName,platform,periodLabel,file,belowNoiMissing,belowNoiResults};
+      pendingImport={type,rowId:rid,noi,cf,capexLines,capexTotal,propName,platform,periodLabel,file,belowNoiMissing,belowNoiResults,
+        belowNiRows: platform==='Appfolio' ? belowNiRows : [], hasMortgageInterest: platform==='Appfolio' && hasMortgageInterest};
       showModal();
     } catch(err){
       alert('Could not read the file. Please make sure it is a valid Appfolio or Buildium Excel export.\n\n'+err.message);
@@ -1407,28 +1461,19 @@ function showModal(){
   const capexSection = document.getElementById('modal-capex-section');
   if(row && row.loc){
     capexSection.style.display='';
-    const linesEl = document.getElementById('modal-capex-lines');
-    if(capexLines && capexLines.length){
-      linesEl.innerHTML = capexLines.map(l=>
-        `<div style="display:flex;justify-content:space-between;padding:2px 0">
-          <span style="color:var(--text2)">${esc(l.label)}</span>
-          <span>${fmtD(Math.abs(l.amount),2)}</span>
-        </div>`
-      ).join('') +
-      `<div style="display:flex;justify-content:space-between;padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px;font-weight:500;color:var(--text)">
-        <span>Detected total</span><span>${fmtD(capexTotal,2)}</span>
-      </div>`;
-    } else {
-      linesEl.innerHTML = '<span style="font-style:italic;font-family:\'DM Sans\',sans-serif">No CapEx lines detected — enter manually if applicable.</span>';
-    }
+    pendingImport.capexInputTouched=false;
+    renderCapexLines();
     // Pre-fill: existing capexCredit on row, or detected total if >0
     const existing = row.capexCredit!==''&&row.capexCredit!==undefined ? parseFloat(row.capexCredit) : null;
-    document.getElementById('modal-capex-input').value =
-      existing!==null && !isNaN(existing) ? existing :
-      capexTotal > 0 ? capexTotal.toFixed(2) : '';
+    const detected = locCapexTotal();
+    const inp=document.getElementById('modal-capex-input');
+    inp.value = existing!==null && !isNaN(existing) ? existing : detected > 0 ? detected.toFixed(2) : '';
+    inp.oninput=()=>{ if(pendingImport) pendingImport.capexInputTouched=true; };
   } else {
     capexSection.style.display='none';
   }
+
+  renderPrincipalSection();
 
   // ── Below-NOI checks ──────────────────────────────────────────────────────
   const belowNoiSection=document.getElementById('modal-below-noi-section');
@@ -1453,6 +1498,85 @@ function showModal(){
   document.getElementById('import-modal').style.display='flex';
 }
 
+// Below-Net-Income section of the import modal (AppFolio only).
+// Each row is tagged '' (ignored), 'principal' or 'capex'; tagged rows are added to Net Income.
+function belowNiTotal(kind){
+  return ((pendingImport&&pendingImport.belowNiRows)||[]).filter(l=>kind?l.kind===kind:!!l.kind).reduce((s,l)=>s+l.amount,0);
+}
+function principalTotal(){ return belowNiTotal('principal'); }
+// LOC credit suggestion: CapEx above Net Income + CapEx tagged below it (as positive amounts)
+function locCapexLines(){
+  const above=(pendingImport&&pendingImport.capexLines)||[];
+  const below=((pendingImport&&pendingImport.belowNiRows)||[]).filter(l=>l.kind==='capex').map(l=>({label:l.label+' (below NI)',amount:l.amount}));
+  return [...above,...below];
+}
+function locCapexTotal(){ return locCapexLines().reduce((s,l)=>s+Math.abs(l.amount),0); }
+function renderCapexLines(){
+  const linesEl=document.getElementById('modal-capex-lines');
+  if(!linesEl||!pendingImport) return;
+  const lines=locCapexLines();
+  if(lines.length){
+    linesEl.innerHTML = lines.map(l=>
+      `<div style="display:flex;justify-content:space-between;padding:2px 0">
+        <span style="color:var(--text2)">${esc(l.label)}</span>
+        <span>${fmtD(Math.abs(l.amount),2)}</span>
+      </div>`).join('') +
+      `<div style="display:flex;justify-content:space-between;padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px;font-weight:500;color:var(--text)">
+        <span>Detected total</span><span>${fmtD(locCapexTotal(),2)}</span>
+      </div>`;
+  } else {
+    linesEl.innerHTML = '<span style="font-style:italic;font-family:\'DM Sans\',sans-serif">No CapEx lines detected — enter manually if applicable.</span>';
+  }
+  if(!pendingImport.capexInputTouched){
+    const inp=document.getElementById('modal-capex-input');
+    const row=state[pendingImport.type]&&state[pendingImport.type].rows.find(r=>r.id===pendingImport.rowId);
+    const hadSaved=row&&row.capexCredit!==''&&row.capexCredit!==undefined&&!isNaN(parseFloat(row.capexCredit));
+    if(inp&&!hadSaved){ const t=locCapexTotal(); inp.value=t>0?t.toFixed(2):''; }
+  }
+}
+function setBelowNiKind(i,kind){
+  if(!pendingImport||!pendingImport.belowNiRows[i])return;
+  pendingImport.belowNiRows[i].kind=kind;
+  renderPrincipalSection();
+  renderCapexLines();
+}
+function renderPrincipalSection(){
+  const sec=document.getElementById('modal-principal-section');
+  const finalField=document.getElementById('modal-cf-final-field');
+  const isAF=pendingImport&&pendingImport.platform==='Appfolio';
+  if(!isAF){sec.style.display='none';finalField.style.display='none';return;}
+  sec.style.display='';
+  const rows=pendingImport.belowNiRows||[];
+  const pr=belowNiTotal('principal'), cx=belowNiTotal('capex');
+  const sel=(i,k)=>`<select onchange="setBelowNiKind(${i},this.value)" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif">
+      <option value="" ${!k?'selected':''}>Ignore</option>
+      <option value="principal" ${k==='principal'?'selected':''}>Principal</option>
+      <option value="capex" ${k==='capex'?'selected':''}>CapEx</option>
+    </select>`;
+  const linesEl=document.getElementById('modal-principal-lines');
+  linesEl.innerHTML = rows.length
+    ? rows.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:2px 0;${l.kind?'color:var(--text);font-weight:500':'color:var(--text3)'}">
+        ${sel(i,l.kind)}
+        <span style="flex:1;font-family:'DM Sans',sans-serif">${esc(l.label)}</span>
+        <span>${fmtAcct(l.amount)}</span>
+      </div>`).join('') +
+      `<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px;color:var(--text);font-weight:500">
+        <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="font-family:'DM Sans',sans-serif">Principal total</span><span>${fmtAcct(pr)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:1px 0"><span style="font-family:'DM Sans',sans-serif">CapEx total</span><span>${fmtAcct(cx)}</span></div>
+      </div>`
+    : '<span style="font-style:italic;font-family:\'DM Sans\',sans-serif;color:var(--text3)">No rows with amounts found below Net Income.</span>';
+  const warn=document.getElementById('modal-principal-warn');
+  if(pendingImport.hasMortgageInterest && !rows.some(l=>l.kind==='principal')){
+    warn.textContent='⚠ Mortgage interest is on this statement, but no row below Net Income is marked as Principal. Mark the principal row below if there is one.';
+    warn.style.display='';
+  } else warn.style.display='none';
+  const cf=pendingImport.cf;
+  if(cf!==null){
+    finalField.style.display='';
+    document.getElementById('modal-cf-final').textContent=fmtAcct(cf+pr+cx);
+  } else finalField.style.display='none';
+}
+
 function closeModal(){
   document.getElementById('import-modal').style.display='none';
   pendingImport=null;
@@ -1464,7 +1588,32 @@ async function applyImport(){
   const r=state[type].rows.find(r=>r.id===rid);
   if(r){
     if(noi!==null) r.currentNoi=noi;
-    if(cf!==null)  r.cf=cf;
+    if(pendingImport.platform==='Appfolio'){
+      const rowsBelow=pendingImport.belowNiRows||[];
+      const prLines=rowsBelow.filter(l=>l.kind==='principal'), cxLines=rowsBelow.filter(l=>l.kind==='capex');
+      const principal=prLines.reduce((s,l)=>s+l.amount,0);
+      const capexBelow=cxLines.reduce((s,l)=>s+l.amount,0);
+      if(cf!==null){
+        r.cf=Math.round((cf+principal+capexBelow)*100)/100;   // cash flow = Net Income + principal + CapEx booked below NI
+        r.netIncome=cf;
+        r.principal=Math.round(principal*100)/100;
+        r.belowNiCapex=Math.round(capexBelow*100)/100;
+      }
+      r.principalLabels=prLines.map(l=>l.label);
+      r.belowNiCapexLabels=cxLines.map(l=>l.label);
+      r.principalMissing=!!pendingImport.hasMortgageInterest && prLines.length===0;
+      // Save newly marked ledger names to Settings for future imports
+      const saveNames=(listKey,lines,skip)=>{
+        const list=state.settings[listKey]||(state.settings[listKey]=[]);
+        const known=new Set(list.map(n=>String(n).trim().toLowerCase()));
+        lines.forEach(l=>{const k=l.label.toLowerCase();if(!known.has(k)&&!(skip&&skip(k))){list.push(l.label);known.add(k);}});
+      };
+      saveNames('principalLedgers',prLines);
+      saveNames('capexLedgers',cxLines);
+    } else {
+      if(cf!==null) r.cf=cf;
+      r.netIncome=''; r.principal=''; r.principalLabels=[]; r.principalMissing=false; r.belowNiCapex=''; r.belowNiCapexLabels=[];
+    }
     // Store which below-NOI categories were missing
     r.belowNoiMissing = (pendingImport.belowNoiMissing||[]).map(c=>c.label);
     // Apply CapEx credit for LOC properties
@@ -1829,7 +1978,35 @@ function renderDisposedTab(){
 }
 
 // ─── settings ─────────────────────────────────────────────────────────────────
+function renderPrincipalSettings(){
+  const cont=document.getElementById('settings-principal');
+  if(!cont)return;
+  const block=(key,title,ph,empty)=>{
+    const list=state.settings[key]||[];
+    return `<div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:500">${title}</span>
+        <button class="btn-add" onclick="addLedger('${key}')" style="font-size:11px;padding:3px 10px">+ Add ledger name</button>
+      </div>
+      ${list.length ? list.map((n,i)=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;max-width:420px">
+          <input value="${esc(n)}" onchange="updateLedger('${key}',${i},this.value)"
+            style="flex:1;padding:5px 9px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg);color:var(--text)"
+            placeholder="${ph}">
+          <button class="del-btn" onclick="removeLedger('${key}',${i})">×</button>
+        </div>`).join('') : `<p style="font-size:12px;color:var(--text3);font-style:italic">${empty}</p>`}
+    </div>`;
+  };
+  cont.innerHTML = block('principalLedgers','Mortgage principal','e.g. Mortgage Payable','No names — principal will not be picked up automatically.')
+    + block('capexLedgers','Capital expenditures','e.g. Building Improvements','No names yet. Rows containing CapEx keywords (e.g. "capital improvements", "capex") are still marked automatically.')
+    + '<p style="font-size:12px;color:var(--text3)">Names you mark in the import window are added here automatically. Buildium files are not affected.</p>';
+}
+function addLedger(key){(state.settings[key]=state.settings[key]||[]).push('');saveState();renderPrincipalSettings();}
+function removeLedger(key,i){state.settings[key].splice(i,1);saveState();renderPrincipalSettings();}
+function updateLedger(key,i,val){state.settings[key][i]=String(val||'').trim();saveState();}
+
 function renderSettings(){
+  renderPrincipalSettings();
   const cont=document.getElementById('settings-below-noi');
   if(!cont)return;
   const checks=state.settings.belowNoiChecks;
@@ -2018,6 +2195,9 @@ function renderTable(type){
     const adjCfClass = adjCfComputed!==null&&!isNaN(adjCfComputed) ? (adjCfComputed>0?'cf-positive':adjCfComputed<0?'cf-negative':'') : '';
     const priorClass = parseFloat(priorVal)<0 ? ' negative' : '';
     const cfClass = parseFloat(row.cf)<0 ? ' negative' : '';
+    const niN=parseFloat(row.netIncome), prN=parseFloat(row.principal)||0, cxN=parseFloat(row.belowNiCapex)||0, cfN=parseFloat(row.cf);
+    const cfSplit=(!isNaN(niN)&&!isNaN(cfN)&&(prN!==0||cxN!==0)&&Math.abs(niN+prN+cxN-cfN)<0.01)
+      ? `Net Income ${fmtAcct(niN)}`+(prN?` + principal ${fmtAcct(prN)}`:'')+(cxN?` + CapEx below NI ${fmtAcct(cxN)}`:'') : '';
     const priorN = parseFloat(priorVal), currentN = parseFloat(row.currentNoi);
     const noiClass = (!isNaN(priorN)&&!isNaN(currentN))
       ? (currentN > priorN ? 'noi-up' : currentN < priorN ? 'noi-down' : '')
@@ -2050,7 +2230,7 @@ function renderTable(type){
       <td>${editCell('<span class="'+noiClass+'">'+(noiDisplay||'')+'</span>',row.currentNoi,type,row.id,'currentNoi','enter or import')}</td>
       <td>${badge(nt)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent)">${nbDisplay}</td>
-      <td>${editCell('<span class="'+cfClass+'">'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
+      <td>${editCell('<span class="'+cfClass+'"'+(cfSplit?' title="'+esc(cfSplit)+'" style="text-decoration:underline dotted;text-underline-offset:3px"':'')+'>'+(cfDisplay||'')+'</span>',row.cf,type,row.id,'cf','enter or import')}</td>
       <td><div style="display:flex;flex-direction:column;gap:2px;padding:2px 0">
         ${editCell('<span class="'+adjsClass+'">'+(adjsDisplay||'')+'</span>',adjsVal,type,row.id,'adjustments','0')}
         ${row.capexCredit!==''&&row.capexCredit!==undefined&&parseFloat(row.capexCredit)>0
@@ -2234,6 +2414,8 @@ function applyPayload(payload){
   // Restore settings (with fallback for old saves)
   if(payload.state.settings) {
     state.settings = payload.state.settings;
+    if(!Array.isArray(state.settings.principalLedgers)) state.settings.principalLedgers = ['Mortgage Payable'];
+    if(!Array.isArray(state.settings.capexLedgers)) state.settings.capexLedgers = [];
     if(state.settings.belowNoiChecks && state.settings.belowNoiChecks.length)
       checkId = Math.max(checkId, ...state.settings.belowNoiChecks.map(c=>c.id));
   }
@@ -2414,7 +2596,7 @@ function resetToDefaults(){
   state.nonpgo = {rows:[],groups:[]};
   state.pgo    = {rows:[],groups:[]};
   state.groups = [];
-  state.settings = {belowNoiChecks:[
+  state.settings = {principalLedgers:['Mortgage Payable'], capexLedgers:[], belowNoiChecks:[
     {id:1,label:'Asset management fee',patterns:[]},
     {id:2,label:'Debt service',patterns:[]},
     {id:3,label:'Capital expenses',patterns:[]}
@@ -2612,6 +2794,12 @@ function rollToNextPeriod(){
       r.priorNoi    = r.currentNoi !== '' ? r.currentNoi : r.priorNoi;
       r.currentNoi  = '';
       r.cf          = '';
+      r.netIncome   = '';
+      r.principal   = '';
+      r.principalLabels = [];
+      r.principalMissing = false;
+      r.belowNiCapex = '';
+      r.belowNiCapexLabels = [];
       r.adjustments = '';
       r.capexCredit = '';
       r.occ         = '';
