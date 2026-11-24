@@ -1705,17 +1705,34 @@ function setLOC(type,id,checked){const r=state[type].rows.find(r=>r.id===id);if(
 
 // ─── archive / recently acquired / sold ───────────────────────────────────────
 // Cycle boundaries are April and October (6-month cycles).
-// Eligible from = start of the cycle containing the acquisition month + 12 months (2 full cycles).
+// Bonus cycles run Apr–Sep and Oct–Mar. A property must complete 2 FULL bonus cycles of
+// ownership; it is eligible from the cycle after that. Acquired on the 1st day of a cycle
+// (Apr 1 / Oct 1) → the acquisition cycle counts as full. Acquired any later day → it doesn't.
+// Accepts 'YYYY-MM-DD' (exact date) or legacy 'YYYY-MM' (month only → old rule: cycle start + 12 months).
 function eligibleFromDate(acq){
   if(!acq) return '—';
-  const parts=acq.split('-').map(Number);
+  const parts=String(acq).split('-').map(Number);
   if(parts.length<2||isNaN(parts[0])||isNaN(parts[1])) return '—';
   const [y,m]=parts;
+  const d=parts.length>=3&&!isNaN(parts[2])?parts[2]:null;
+  // start of the cycle containing the acquisition
   let csm,csy;
   if(m>=4&&m<=9){csm=4;csy=y;}
   else if(m>=10){csm=10;csy=y;}
   else{csm=10;csy=y-1;} // Jan–Mar fall in prior Oct cycle
-  return `${csy+1}-${String(csm).padStart(2,'0')}`;
+  // cycles to add to the acquisition cycle's start:
+  //   exact date on the cycle's 1st day → +2 (acquisition cycle + next are the 2 full cycles)
+  //   exact date after the 1st           → +3 (next two cycles are the 2 full cycles)
+  //   month only (legacy)                → +2 (unchanged until an exact date is entered)
+  const add = d===null ? 2 : (d===1 && m===csm) ? 2 : 3;
+  const idx = csy*2 + (csm===10?1:0) + add;
+  const ey = Math.floor(idx/2), em = idx%2 ? 10 : 4;
+  return `${ey}-${String(em).padStart(2,'0')}`;
+}
+function fmtAcqHint(acq){
+  // Legacy month-only values: prompt for the exact date
+  return acq && String(acq).split('-').length===2
+    ? `<div style="font-size:10px;color:var(--amber);margin-top:2px">was ${acq} (month only) — enter exact date</div>` : '';
 }
 
 function handleRowStatus(type,id,status){
@@ -1888,7 +1905,7 @@ function renderWaitList(){
     return `<tr>
       <td style="font-weight:500;padding-left:16px"><input value="${esc(r.name||'')}" placeholder="Property name" onchange="setArchivedField('${r._type}',${r.id},'name',this.value)" style="font-size:13px;width:100%;padding:3px 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-family:\'DM Sans\',sans-serif;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="if(document.activeElement!==this)this.style.borderColor=\'transparent\'" onfocus="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--bg)\'" onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'"></td>
       <td>${typeBadge}</td>
-      <td><input type="month" value="${r.acquiredDate||''}" onchange="setArchivedField('${r._type}',${r.id},'acquiredDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
+      <td><input type="date" value="${r.acquiredDate&&String(r.acquiredDate).length===10?r.acquiredDate:''}" onchange="setArchivedField('${r._type}',${r.id},'acquiredDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto">${fmtAcqHint(r.acquiredDate)}</td>
       <td>${eligibleLabel}</td>
       <td>
         <button class="btn-add" onclick="showWaitListEdit('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap;margin-right:4px">✏ Edit data</button>
@@ -1903,7 +1920,7 @@ function renderWaitList(){
       <div class="card-header" style="background:#fffbf0;border-color:#d4a01744">
         <div style="display:flex;align-items:center;gap:10px">
           <span class="card-title" style="color:var(--amber)">⏳ Wait List — not yet eligible (${all.length})</span>
-          <span style="font-size:11px;color:var(--text3)">Must complete 2 full bonus cycles from acquisition date · Eligible = cycle start + 12 months</span>
+          <span style="font-size:11px;color:var(--text3)">Must complete 2 full bonus cycles (Apr–Sep / Oct–Mar) · Acquired on Apr 1 or Oct 1 → that cycle counts as full</span>
         </div>
       </div>
       <div class="tbl-wrap"><table>
