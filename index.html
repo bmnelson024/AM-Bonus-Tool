@@ -1905,7 +1905,7 @@ function renderWaitList(){
     return `<tr>
       <td style="font-weight:500;padding-left:16px"><input value="${esc(r.name||'')}" placeholder="Property name" onchange="setArchivedField('${r._type}',${r.id},'name',this.value)" style="font-size:13px;width:100%;padding:3px 7px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);font-family:\'DM Sans\',sans-serif;" onmouseover="this.style.borderColor=\'var(--border)\'" onmouseout="if(document.activeElement!==this)this.style.borderColor=\'transparent\'" onfocus="this.style.borderColor=\'var(--accent)\';this.style.background=\'var(--bg)\'" onblur="this.style.borderColor=\'transparent\';this.style.background=\'transparent\'"></td>
       <td>${typeBadge}</td>
-      <td><input type="date" value="${r.acquiredDate&&String(r.acquiredDate).length===10?r.acquiredDate:''}" onchange="setArchivedField('${r._type}',${r.id},'acquiredDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto">${fmtAcqHint(r.acquiredDate)}</td>
+      <td><input type="date" value="${r.acquiredDate&&String(r.acquiredDate).length===10?r.acquiredDate:''}" data-orig="${r.acquiredDate||''}" onblur="if(this.value!==this.dataset.orig)setArchivedField('${r._type}',${r.id},'acquiredDate',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto">${fmtAcqHint(r.acquiredDate)}</td>
       <td>${eligibleLabel}</td>
       <td>
         <button class="btn-add" onclick="showWaitListEdit('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap;margin-right:4px">✏ Edit data</button>
@@ -1979,7 +1979,7 @@ function renderDisposedTab(){
     return `<tr>
       <td style="font-weight:500;padding-left:16px">${esc(r.name||'(unnamed)')}</td>
       <td>${typeBadge}</td>
-      <td><input type="month" value="${r.soldDate||''}" onchange="setArchivedField('${r._type}',${r.id},'soldDate',this.value)" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
+      <td><input type="month" value="${r.soldDate||''}" data-orig="${r.soldDate||''}" onblur="if(this.value!==this.dataset.orig)setArchivedField('${r._type}',${r.id},'soldDate',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="font-size:12px;padding:3px 7px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text);width:auto"></td>
       <td><button class="btn-add" onclick="restoreRow('${r._type}',${r.id})" style="font-size:11px;padding:3px 10px;white-space:nowrap">→ Move to active</button></td>
       <td><button class="del-btn" onclick="if(confirm('Permanently remove \\'${esc(r.name||'this property')}\\' from the tool?')){removeRow('${r._type}',${r.id})}">×</button></td>
     </tr>`;
