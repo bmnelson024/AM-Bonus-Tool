@@ -638,9 +638,9 @@ const state = {
     principalLedgers:['Mortgage Payable'],
     capexLedgers:[],
     belowNoiChecks:[
-      {id:1,label:'Asset management fee',patterns:[]},
-      {id:2,label:'Debt service',patterns:[]},
-      {id:3,label:'Capital expenses',patterns:[]}
+      {id:1,label:'Asset management fee',patterns:[],platforms:{appfolio:true,buildium:true}},
+      {id:2,label:'Debt service',patterns:[],platforms:{appfolio:true,buildium:false}},
+      {id:3,label:'Capital expenses',patterns:[],platforms:{appfolio:true,buildium:false}}
     ]
   }
 };
@@ -685,6 +685,15 @@ function consolidateGroups(src){
 }
 function sortedGroups(){
   return [...state.groups].sort((a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true,sensitivity:'base'}));
+}
+
+// Below-NOI checks can be limited to AppFolio and/or Buildium files.
+function checkAppliesTo(c, platform){
+  const pf=String(platform||'').toLowerCase();
+  const pl=c.platforms||{appfolio:true,buildium:true};
+  if(pf==='appfolio'||pf==='indigo') return pl.appfolio!==false;   // Indigo files are converted to AppFolio format
+  if(pf==='buildium') return pl.buildium!==false;
+  return true;
 }
 
 function initFromSeed(){
@@ -1080,7 +1089,10 @@ function getRowWarnings(type, rowId){
   else if(r.imported&&String(r.platform||'').toLowerCase()==='appfolio'&&hasCF&&r.belowNiCapex===undefined)
     all.push({key:'principal-reimport', msg:'Imported before the below-Net-Income adjustment — re-import the income statement so principal and CapEx below Net Income are included in cash flow.'});
   if(r.imported&&r.belowNoiMissing&&r.belowNoiMissing.length)
-    r.belowNoiMissing.forEach(lbl=>all.push({key:`below-noi:${lbl}`, msg:`"${lbl}" not found below NOI in the imported income statement`}));
+    r.belowNoiMissing.filter(lbl=>{
+      const c=(state.settings.belowNoiChecks||[]).find(c=>c.label===lbl);
+      return !c||checkAppliesTo(c,r.platform);
+    }).forEach(lbl=>all.push({key:`below-noi:${lbl}`, msg:`"${lbl}" not found below NOI in the imported income statement`}));
   return all.filter(w=>!dismissed.has(w.key));
 }
 
@@ -1325,7 +1337,7 @@ function parseStatement(file, type, rid){
       const capexLedgerSet=toSet(state.settings&&state.settings.capexLedgers);
       // Below-NOI line item detection
       let passedNOI=false;
-      const checks=state.settings&&state.settings.belowNoiChecks||[];
+      const checks=(state.settings&&state.settings.belowNoiChecks||[]).filter(c=>checkAppliesTo(c,platform));
       const belowNoiFound={};
       checks.forEach(c=>{belowNoiFound[c.id]=false;});
 
@@ -2026,6 +2038,11 @@ function renderSettings(){
           placeholder="Category name">
         <button class="btn-remove" onclick="removeBelowNoiCheck(${c.id})" style="font-size:11px;padding:3px 12px">Remove</button>
       </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+        <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em">Check on</span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" ${(c.platforms||{}).appfolio!==false?'checked':''} onchange="setCheckPlatform(${c.id},'appfolio',this.checked)"> AppFolio files</label>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" ${(c.platforms||{}).buildium!==false?'checked':''} onchange="setCheckPlatform(${c.id},'buildium',this.checked)"> Buildium files</label>
+      </div>
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">
         Label patterns — any row whose text contains one of these (case-insensitive) counts as found
       </div>
@@ -2034,8 +2051,15 @@ function renderSettings(){
     </div>`;
   }).join('');
 }
+function setCheckPlatform(id,pf,on){
+  const c=state.settings.belowNoiChecks.find(c=>c.id===id);
+  if(!c)return;
+  c.platforms=c.platforms||{appfolio:true,buildium:true};
+  c.platforms[pf]=on;
+  saveState();renderSettings();renderTable('nonpgo');renderTable('pgo');
+}
 function addBelowNoiCheck(){
-  state.settings.belowNoiChecks.push({id:++checkId,label:'New category',patterns:[]});
+  state.settings.belowNoiChecks.push({id:++checkId,label:'New category',patterns:[],platforms:{appfolio:true,buildium:true}});
   saveState();renderSettings();
 }
 function removeBelowNoiCheck(id){
@@ -2416,6 +2440,13 @@ function applyPayload(payload){
     state.settings = payload.state.settings;
     if(!Array.isArray(state.settings.principalLedgers)) state.settings.principalLedgers = ['Mortgage Payable'];
     if(!Array.isArray(state.settings.capexLedgers)) state.settings.capexLedgers = [];
+    (state.settings.belowNoiChecks||[]).forEach(c=>{
+      if(!c.platforms){
+        const l=String(c.label||'').toLowerCase();
+        const afOnly=l.includes('debt')||l.includes('capital')||l.includes('capex');
+        c.platforms={appfolio:true,buildium:!afOnly};
+      }
+    });
     if(state.settings.belowNoiChecks && state.settings.belowNoiChecks.length)
       checkId = Math.max(checkId, ...state.settings.belowNoiChecks.map(c=>c.id));
   }
@@ -2597,9 +2628,9 @@ function resetToDefaults(){
   state.pgo    = {rows:[],groups:[]};
   state.groups = [];
   state.settings = {principalLedgers:['Mortgage Payable'], capexLedgers:[], belowNoiChecks:[
-    {id:1,label:'Asset management fee',patterns:[]},
-    {id:2,label:'Debt service',patterns:[]},
-    {id:3,label:'Capital expenses',patterns:[]}
+    {id:1,label:'Asset management fee',patterns:[],platforms:{appfolio:true,buildium:true}},
+    {id:2,label:'Debt service',patterns:[],platforms:{appfolio:true,buildium:false}},
+    {id:3,label:'Capital expenses',patterns:[],platforms:{appfolio:true,buildium:false}}
   ]};
   rowId = 0; groupId = 0; checkId = 3;
   sortState.nonpgo={col:'name',dir:1};
