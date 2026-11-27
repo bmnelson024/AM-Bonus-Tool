@@ -2414,8 +2414,12 @@ function printResultsSummary(){
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>${links}
 <style>${styles}
   @page{size:letter landscape;margin:0.4in;}
-  html,body{background:#fff !important;}
-  body{padding:0;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  html,body{background:#fff !important;height:auto !important;min-height:0 !important;}
+  body{padding:0 !important;margin:0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  /* the whole page lives in #sheet; a script below shrinks it to fit one page */
+  #sheet{width:10in;overflow:hidden;}
+  .sig{display:grid;grid-template-columns:2.2fr 1.6fr 1fr;gap:28px;margin-top:48px;break-inside:avoid;}
+  .sig div{border-top:1px solid var(--text);padding-top:4px;font-size:10px;color:var(--text2);}
   .print-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--accent);padding-bottom:8px;margin-bottom:12px;}
   .print-head h1{font-size:18px;font-weight:600;margin:0;color:var(--text);}
   .print-head .sub{font-size:11px;color:var(--text2);margin-top:3px;}
@@ -2428,7 +2432,7 @@ function printResultsSummary(){
   .btbl{margin-top:6px !important;font-size:10.5px !important;}
   .btbl th,.btbl td{padding:4px 6px !important;}
   .print-foot{font-size:9px;color:var(--text3);margin-top:6px;}
-</style></head><body>
+</style></head><body><div id="sheet">
   <div class="print-head">
     <div><h1>AM Bonus — Results Summary</h1><div class="sub">${periods}</div></div>
     <div class="right">LeavenWealth · Incentive-Based Compensation Plan, Exhibit B<br>Generated ${stamp}</div>
@@ -2436,6 +2440,25 @@ function printResultsSummary(){
   <div class="metrics-grid">${grand}</div>
   ${sections}
   <div class="print-foot">Tier weights — NOI increase &amp; economic occupancy: Tier 1 5%, Tier 2 15%, Tier 3 25%; cash flow: Tier 1 20%, Tier 2 35%, Tier 3 50% of the per-property rate. Totals capped at each pool.</div>
+  <div class="sig"><div>Signature</div><div>Printed name</div><div>Date</div></div>
+</div>
+<scr`+`ipt>
+  // Shrink to fit one page. Target height leaves room for Letter or A4 landscape with default margins.
+  function fitSheet(){
+    const el=document.getElementById('sheet');
+    const maxH=6.9*96, W=10;                // printable height/width in inches → CSS px
+    let z=1;
+    for(let i=0;i<4;i++){                   // widen as we shrink so the page still fills the full width
+      el.style.zoom=1; el.style.width=(W/z)+'in';
+      const h=el.scrollHeight;
+      z=Math.min(1,maxH/h);
+    }
+    el.style.width=(W/z)+'in';
+    el.style.zoom=z.toFixed(3);
+  }
+  fitSheet();
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(fitSheet);
+<\/script>
 </body></html>`;
 
   const old=document.getElementById('print-frame'); if(old) old.remove();
@@ -2448,6 +2471,7 @@ function printResultsSummary(){
   const prevTitle=document.title;
   const go=()=>{
     document.title=title;               // Chrome uses this as the default PDF file name
+    try{frame.contentWindow.fitSheet();}catch(e){}
     frame.contentWindow.focus();
     frame.contentWindow.print();
     setTimeout(()=>{document.title=prevTitle;},1000);
