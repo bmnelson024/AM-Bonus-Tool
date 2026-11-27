@@ -196,6 +196,7 @@
     <button class="btn-nav" onclick="triggerOccUpload()" style="background:rgba(255,255,255,0.15);font-weight:500;font-size:12px;" title="Upload completed economic occupancy spreadsheet (all properties)">⬆ Upload Ec Occ</button>
     <button class="btn-nav" onclick="rollToNextPeriod()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">⟳ Roll to next period</button>
     <button class="btn-nav" onclick="resetToDefaults()" style="background:rgba(255,255,255,0.08);font-weight:400;font-size:12px;">Reset to defaults</button>
+    <button class="btn-nav" onclick="printResultsSummary()" style="background:rgba(255,255,255,0.15);font-weight:500;font-size:12px;" title="One-page Results summary — choose “Save as PDF” in the print dialog">🖨 Results PDF</button>
     <button class="btn-nav" onclick="switchTab('results')">View results →</button>
   </div>
 </header>
@@ -2380,7 +2381,7 @@ function renderResults(){
         <tr><td>NOI Increase</td><td class="num">${mN}</td><td class="num">$0.00</td><td class="num" style="color:var(--text3)">${naN||'—'}</td><td class="num">${t1N}</td><td class="num">${fmtD(t1N*rate*0.05*sc,2)}</td><td class="num">${t2N}</td><td class="num">${fmtD(t2N*rate*0.15*sc,2)}</td><td class="num">${t3N}</td><td class="num">${fmtD(t3N*rate*0.25*sc,2)}</td><td class="num" style="font-weight:500">${fmtD(noiE*sc,2)}</td></tr>
         <tr><td>Economic Occupancy</td><td class="num">${mO}</td><td class="num">$0.00</td><td class="num">—</td><td class="num">${t1O}</td><td class="num">${fmtD(t1O*rate*0.05*sc,2)}</td><td class="num">${t2O}</td><td class="num">${fmtD(t2O*rate*0.15*sc,2)}</td><td class="num">${t3O}</td><td class="num">${fmtD(t3O*rate*0.25*sc,2)}</td><td class="num" style="font-weight:500">${fmtD(occE*sc,2)}</td></tr>
         <tr><td>Cash Flow</td><td class="num">${mC}</td><td class="num">$0.00</td><td class="num">—</td><td class="num">${t1C}</td><td class="num">${fmtD(t1C*rate*0.20*sc,2)}</td><td class="num">${t2C}</td><td class="num">${fmtD(t2C*rate*0.35*sc,2)}</td><td class="num">${t3C}</td><td class="num">${fmtD(t3C*rate*0.50*sc,2)}</td><td class="num" style="font-weight:500">${fmtD(cfE*sc,2)}</td></tr>
-        <tr class="tot"><td colspan="9" style="text-align:right">Total bonus${capped?' (capped)':''}</td><td class="num">${fmtD(earned,2)}</td></tr>
+        <tr class="tot"><td colspan="10" style="text-align:right">Total bonus${capped?' (capped)':''}</td><td class="num">${fmtD(earned,2)}</td></tr>
       </tbody></table>
     </div>`;
   }).join('');
@@ -2392,6 +2393,68 @@ function renderResults(){
     <div class="metric"><div class="metric-label">Non-PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.nonpgo||0,2)}</div></div>
     <div class="metric"><div class="metric-label">PGO earned</div><div class="metric-value" style="font-size:18px">${fmtD(tabEarned.pgo||0,2)}</div></div>`;
   document.getElementById('results-sections').innerHTML=sections;
+}
+
+// ─── one-page Results summary (print → Save as PDF) ──────────────────────────
+function printResultsSummary(){
+  renderResults();   // make sure figures are current
+  const grand=document.getElementById('grand-metrics').innerHTML;
+  const sections=document.getElementById('results-sections').innerHTML;
+  const styles=[...document.querySelectorAll('style')].map(el=>el.textContent).join('\n');
+  const links=[...document.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]')].map(el=>el.outerHTML).join('\n');
+  const now=new Date();
+  const stamp=now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const fileDate=now.toISOString().slice(0,10);
+  const periods=['nonpgo','pgo'].map(t=>{
+    const ps=document.getElementById('pstart-'+t).value, pe=document.getElementById('pend-'+t).value;
+    const fm=v=>{if(!v)return'—';const [y,m]=v.split('-').map(Number);return MONTH_NAMES[m-1]+' '+y;};
+    return (t==='nonpgo'?'Non-PGO':'PGO')+': '+fm(ps)+' – '+fm(pe);
+  }).join(' &nbsp;·&nbsp; ');
+  const title='AM Bonus Results Summary - '+fileDate;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>${links}
+<style>${styles}
+  @page{size:letter landscape;margin:0.4in;}
+  html,body{background:#fff !important;}
+  body{padding:0;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .print-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--accent);padding-bottom:8px;margin-bottom:12px;}
+  .print-head h1{font-size:18px;font-weight:600;margin:0;color:var(--text);}
+  .print-head .sub{font-size:11px;color:var(--text2);margin-top:3px;}
+  .print-head .right{font-size:10px;color:var(--text3);text-align:right;}
+  .metrics-grid{display:grid !important;grid-template-columns:repeat(5,1fr) !important;gap:8px !important;margin-bottom:10px !important;}
+  .metric{padding:8px 10px !important;}
+  .section-result{padding:10px 14px !important;margin-bottom:8px !important;break-inside:avoid;page-break-inside:avoid;}
+  .section-result h3{margin-bottom:8px !important;padding-bottom:6px !important;}
+  .smgrid{margin-bottom:6px !important;grid-template-columns:repeat(3,1fr) !important;}
+  .btbl{margin-top:6px !important;font-size:10.5px !important;}
+  .btbl th,.btbl td{padding:4px 6px !important;}
+  .print-foot{font-size:9px;color:var(--text3);margin-top:6px;}
+</style></head><body>
+  <div class="print-head">
+    <div><h1>AM Bonus — Results Summary</h1><div class="sub">${periods}</div></div>
+    <div class="right">LeavenWealth · Incentive-Based Compensation Plan, Exhibit B<br>Generated ${stamp}</div>
+  </div>
+  <div class="metrics-grid">${grand}</div>
+  ${sections}
+  <div class="print-foot">Tier weights — NOI increase &amp; economic occupancy: Tier 1 5%, Tier 2 15%, Tier 3 25%; cash flow: Tier 1 20%, Tier 2 35%, Tier 3 50% of the per-property rate. Totals capped at each pool.</div>
+</body></html>`;
+
+  const old=document.getElementById('print-frame'); if(old) old.remove();
+  const frame=document.createElement('iframe');
+  frame.id='print-frame';
+  frame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(frame);
+  const doc=frame.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  const prevTitle=document.title;
+  const go=()=>{
+    document.title=title;               // Chrome uses this as the default PDF file name
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(()=>{document.title=prevTitle;},1000);
+  };
+  // wait for web fonts so the PDF doesn't fall back to a system font
+  const fontsReady=doc.fonts&&doc.fonts.ready?doc.fonts.ready:Promise.resolve();
+  Promise.race([fontsReady,new Promise(r=>setTimeout(r,1500))]).then(()=>setTimeout(go,150));
 }
 
 function focusPool(type){
